@@ -66,6 +66,15 @@ something the next session needs to know.
   graph (allowed in deny.toml with a comment). Private/internal use has no
   obligations, but DISTRIBUTING the exe requires the kanata source link plus
   object files / relink means per LGPL §4/§6.
+- **v4 device-test fixes**: (a) tray "open settings" was a silent no-op — the
+  v3 refactor dropped the `MAIN_WINDOW` registration; the window handle is
+  now registered from a one-shot `use_future` in `ui_root`. (b) the exe is
+  built as a GUI-subsystem binary (`windows_subsystem = "windows"`) so no
+  console pops up on double-click. (c) single-instance guard: a sentinel
+  listener on 127.0.0.1:58270; a second launch exits immediately (the user
+  had two instances double-capturing keys). The loopback TCP server remains
+  because it is kanata 1.11's only programmatic reload surface — internal
+  IPC only, never UI-facing.
 - `src/bin/enable-touchpad/`: Dioxus 0.7 desktop app — tray (`tray-icon`,
   leaked handle; `TrayIcon` is `!Send`), settings page, click-through
   indicator window (`DesktopContext::new_window` + tao

@@ -9,7 +9,7 @@
 use crate::config::{self, AppConfig, LALT_ACTIONS, MOUSE_ACTIONS};
 use crate::kanata_embed;
 use dioxus::desktop::tao;
-use dioxus::desktop::{Config, LogicalSize, WindowBuilder, WindowCloseBehaviour};
+use dioxus::desktop::{Config, LogicalSize, WindowBuilder, WindowCloseBehaviour, window};
 use dioxus::prelude::*;
 use std::sync::{Arc, OnceLock};
 
@@ -82,6 +82,12 @@ fn ui_root() -> Element {
     let key_e = use_signal(move || initial_e);
     let key_lalt = use_signal(move || initial_lalt);
     let mut save_state = use_signal(String::new);
+
+    // Register the main window handle so the tray thread can open it.
+    use_future(|| async move {
+        let _ = MAIN_WINDOW.set(Arc::clone(&window().window));
+        log::info!("main window created");
+    });
 
     let section = "background:#1c1f26;border-radius:12px;padding:14px 16px;";
     let label = "color:#9aa3b2;font-size:12px;margin-bottom:8px;";
