@@ -9,7 +9,7 @@
 //! - hot-apply config changes by sending the TCP `Reload` command, so saving
 //!   in the settings page takes effect without a restart.
 //!
-//! The `CapsLock` mapping emits Ctrl+Win+F24 as a tap on press and on release:
+//! The `CapsLock` mapping emits Ctrl+Win+F24 as a single tap at press:
 //! the operating system / touchpad driver owns what that combo does (the
 //! soft enable/disable of the touchpad). This app never disables devices.
 
@@ -96,15 +96,11 @@ fn send_reload() -> Result<(), String> {
 /// Generate the kanata layer config from the app configuration.
 ///
 /// While `CapsLock` is held: the `mouse` layer activates and Ctrl+Win+F24 is
-/// tapped once on press and once again on release (soft toggle handled by the
-/// operating system / touchpad driver).
+/// tapped once at press (a full down+up wave, closest to a real key press) —
+/// the operating system / touchpad driver owns what that combo does (the soft
 pub fn generate_config_text(cfg: &AppConfig) -> String {
     let caps_slot = if cfg.feature_enabled {
-        r"(switch
-    ((input real caps)) (multi (layer-while-held mouse) lctl lmeta f24) break
-    ((not (input real caps))) (multi lctl lmeta f24) break
-  )"
-        .to_string()
+        r"(multi (layer-while-held mouse) (macro lctl lmeta f24))".to_string()
     } else {
         "caps".to_string()
     };

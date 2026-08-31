@@ -56,6 +56,18 @@ something the next session needs to know.
     generated from code (single source of truth) and syntax-validated with
     `kanata --check` (switch-case form: `((input real caps)) <action> break`,
     three sibling forms per case).
+- **v5 layer fix (verified with kanata's own simulation harness)**: the v4
+  config put `layer-while-held` inside a `switch` case — kanata's sim
+  (`simulated_output` feature, `simulate()` in `src/tests/sim_tests/mod.rs`
+  of the kanata repo) proved the layer never activates in that position
+  (the letter Q passed through, hitting Win+Ctrl+Q = Quick Assist dialog on
+  the user's machine). The switch construct was replaced with the verified
+  `(multi (layer-while-held mouse) (macro lctl lmeta f24))`: full combo tap
+  at press, layer active while held, Q/W/E emit mouse buttons
+  (`out🖰:↓Left` in sim). NOTE: the "release taps the combo again"
+  (soft-disable) is NOT yet implemented — no clean kanata construct exists
+  (`fork` third arg must be a key list, not an action); awaiting the user's
+  driver-behaviour report from real-machine testing.
 - **Single-exe architecture**: kanata v1.11 embedded as a library
   (`kanata_state_machine` from crates.io, default features minus zippychord
   = LL-hook capture + SendInput output — NO Interception driver and NO
