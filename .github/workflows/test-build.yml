@@ -80,5 +80,7 @@ jobs:
           path: |
             target/${{ matrix.target }}/release/rust-agents-template
             target/${{ matrix.target }}/release/rust-agents-template.exe
+            target/${{ matrix.target }}/release/enable-touchpad
+            target/${{ matrix.target }}/release/enable-touchpad.exe
           if-no-files-found: error
           retention-days: 7
