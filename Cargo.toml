@@ -1,0 +1,21 @@
+[package]
+name = "rust-agents-template"
+version = "0.1.0"
+edition = "2024"
+description = "An agent-facing Rust project template with strict lints, layered git hooks, and CI."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/NIyueeE/rust-agents-template"
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+dbg_macro = "deny"
+todo = "warn"
