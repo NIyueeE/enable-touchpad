@@ -29,6 +29,31 @@ something the next session needs to know.
 - CD: `test-build.yml` verified on all three platforms.
 - Everything currently green: CI on main, pre-commit, pre-push.
 
+### Windows feasibility demo (branch `demo/windows-feasibility`, 2026-08-31)
+
+- Goal: validate the enable-touchpad idea — hold CapsLock in a kanata layer
+  → touchpad enabled + Q/W/E act as mouse buttons + indicator at the mouse;
+  release → restore and disable. Built per the user's hand-drawn sketch.
+- `demo/kanata/enable-touchpad.kbd`: single config serving both signal modes
+  (TCP `LayerChange` via `-p 5829`, or the emitted `Ctrl+Win+F24` combo);
+  validated with `kanata --check` (built kanata 1.12.1-prerelease on Linux).
+- `src/bin/enable-touchpad/`: Dioxus 0.7 desktop app — tray (`tray-icon`,
+  leaked handle; `TrayIcon` is `!Send`), settings page, click-through
+  indicator window (`DesktopContext::new_window` + tao
+  `set_ignore_cursor_events`), touchpad toggle via PowerShell
+  `Enable/Disable-PnpDevice` (needs admin; no `unsafe` anywhere).
+- Key API findings (dioxus 0.7.10): default `Signal` is **Unsync** (thread-local)
+  → cross-thread UI state uses `use_signal_sync` + statics;
+  `use_hook` was removed in 0.7; `Signal::set` needs `&mut self`;
+  `use_future` closure is `FnMut`; wry has no click-through — go through
+  tao's `set_ignore_cursor_events`; rdev has no `Key::F24` (match
+  `Key::Unknown(0x87)`); muda `MenuItem::with_id` takes
+  `Option<Accelerator>`.
+- Windows-only code lives under `cfg(windows)` + `[target.'cfg(windows)'.dependencies]`
+  so Linux gates stay green; verification on Linux = `cargo check/clippy
+  --target x86_64-pc-windows-msvc` (compiles, not run). Real-device testing
+  still pending on a Windows machine.
+
 ## Decision log (why things are the way they are)
 
 - Bilingual docs (`*.md` + `*.zh.md`) — user preference; mechanically enforced
@@ -46,6 +71,13 @@ something the next session needs to know.
   values (example/dummy/{{ }}) are filtered to keep false positives low.
 - The README roadmap section was removed at user request; open items live in
   this file.
+- Demo branch: deny.toml gained (a) `MPL-2.0` in the license allowlist for
+  the servo/HTML stack dioxus pulls in (cssparser/selectors/dtoa-short,
+  option-ext) and (b) 14 advisory ignores for GTK3/glib/fxhash/paste/
+  proc-macro-error/rand "unmaintained/unsound" notices — all present only
+  because `[graph] all-features = true` collects every platform's metadata;
+  none compile for the Windows target. Re-evaluate and drop the ignores if
+  the demo graduates to a cross-platform product.
 
 ## Open threads
 

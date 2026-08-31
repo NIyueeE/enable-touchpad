@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Windows feasibility demo (`demo/`, demo branch for now): a Dioxus desktop
+  app (`src/bin/enable-touchpad`) with system tray, minimal settings page and
+  a mouse-following layer indicator, plus a `kanata` CapsLock layer config
+  that enables the touchpad while CapsLock is held and restores on release.
+  See `demo/README.md`; the app compiles for `cfg(windows)` only (other
+  targets build a stub).
+
 ## [0.1.0] - 2026-08-31
 
 ### Added

@@ -1,0 +1,43 @@
+;; enable-touchpad — kanata layer config (Windows feasibility demo)
+;;
+;; Behaviour (matches the project design sketch):
+;;   Hold CapsLock  -> the "mouse" layer activates AND Ctrl+Win+F24 is held down.
+;;   Release CapsLock -> the layer deactivates, Ctrl+Win+F24 is released,
+;;                       and every key returns to its base meaning.
+;;
+;; Inside the "mouse" layer:
+;;   Q        -> hold left mouse button
+;;   W        -> hold middle mouse button
+;;   E        -> hold right mouse button
+;;   Left Alt -> CapsLock
+;;
+;; The companion app (src/bin/enable-touchpad) reacts to one of two signals,
+;; selected in its settings page:
+;;   TCP mode: run kanata as
+;;       kanata -c enable-touchpad.kbd -p 5829
+;;     the app receives {"LayerChange":{"new":"mouse"}} lines.
+;;   F24 mode: run kanata without -p; the app watches the F24 key press/release
+;;     that the multi action below emits (Ctrl+Win+F24 is intentionally inert
+;;     on stock Windows, so the combo is safe to emit).
+;;
+;; Windows needs the Interception driver; see demo/README.md for setup.
+
+(defcfg process-unmapped-keys no)
+
+(defsrc caps q w e lalt)
+
+(deflayer base
+  (multi (layer-while-held mouse) lctl lmeta f24)
+  q
+  w
+  e
+  lalt
+)
+
+(deflayer mouse
+  XX
+  mlft
+  mmid
+  mrgt
+  caps
+)

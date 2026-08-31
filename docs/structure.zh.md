@@ -5,6 +5,8 @@
 | 路径 | 用途 |
 |------|------|
 | `src/main.rs` | 二进制入口 |
+| `src/bin/enable-touchpad/` | Windows demo 二进制:托盘 + 设置页 + 触摸板启停(其他目标为占位桩) |
+| `demo/` | Windows 可行性 demo 资产:kanata 层配置、双语 README |
 | `tests/cli.rs` | 二进制冒烟测试 |
 | `Cargo.toml` | 清单:严格 `[lints]`、包元数据 |
 | `Cargo.lock` | 入库提交(二进制模板惯例) |

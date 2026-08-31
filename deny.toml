@@ -18,6 +18,13 @@ allow = [
     "Unicode-3.0",
     "Zlib",
     "CC0-1.0",
+    # demo branch: servo/HTML-parsing stack pulled in by dioxus (cssparser,
+    # selectors, dtoa-short) plus option-ext; MPL-2.0 is file-level copyleft
+    # and does not affect the licenses of this crate
+    "MPL-2.0",
+    # demo branch: libfuzzer-sys (via dioxus wasm tooling) is
+    # "(MIT OR Apache-2.0) AND NCSA"; NCSA is the permissive UIUC/LLVM license
+    "NCSA",
 ]
 
 [bans]
@@ -27,6 +34,26 @@ wildcards = "deny"
 [advisories]
 version = 2
 yanked = "deny"
+# demo branch (AGENTS.md §2: upstream noise, no fix available): all
+# "unmaintained"/"unsound" notices from the GTK3/glib stack that only exists
+# in the lockfile because [graph] collects every platform's metadata
+# (wry/muda Linux backends) — none of it is compiled for the Windows target.
+ignore = [
+    "RUSTSEC-2024-0370", # rand 0.7 unsound (via gtk ecosystem)
+    "RUSTSEC-2024-0411", # gdkwayland-sys unmaintained
+    "RUSTSEC-2024-0412", # gdk unmaintained
+    "RUSTSEC-2024-0413", # atk unmaintained
+    "RUSTSEC-2024-0414", # gdkx11-sys unmaintained
+    "RUSTSEC-2024-0415", # gtk unmaintained
+    "RUSTSEC-2024-0416", # atk-sys unmaintained
+    "RUSTSEC-2024-0418", # gdk-sys unmaintained
+    "RUSTSEC-2024-0419", # gtk-sys unmaintained
+    "RUSTSEC-2024-0420", # glib unsound
+    "RUSTSEC-2024-0429", # proc-macro-error unmaintained
+    "RUSTSEC-2024-0436", # gtk3-macros unmaintained
+    "RUSTSEC-2025-0057", # fxhash unmaintained
+    "RUSTSEC-2026-0097", # paste unmaintained
+]
 
 [sources]
 unknown-registry = "deny"
