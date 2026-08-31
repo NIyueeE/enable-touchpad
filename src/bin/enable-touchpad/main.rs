@@ -1,12 +1,11 @@
-//! enable-touchpad — Windows feasibility demo (Dioxus UI + kanata layer signal).
+//! enable-touchpad — Windows feasibility demo (single exe).
 //!
-//! Hold `CapsLock`: the kanata `mouse` layer activates, the touchpad is enabled,
-//! and a small click-through indicator follows the mouse. Release `CapsLock`:
-//! the layer is restored and the touchpad is disabled again.
-//!
-//! Non-Windows targets build a stub binary so the repository's host-side gates
-//! (fmt / machete / docs / clippy / test on Linux) keep passing unchanged;
-//! the real application only compiles for `cfg(windows)`.
+//! One binary that embeds kanata as a library: holding `CapsLock` activates
+//! the `mouse` layer and taps Ctrl+Win+F24, which the operating system /
+//! touchpad driver maps to the soft touchpad enable/disable. The app provides
+//! a tray icon, a small settings window for the layer key bindings, and file
+//! logging. Non-Windows targets build a stub so the repository's host-side
+//! gates keep passing unchanged.
 
 #[cfg(windows)]
 mod app;
@@ -15,23 +14,13 @@ mod config;
 #[cfg(windows)]
 mod kanata_embed;
 #[cfg(windows)]
-mod signal;
-#[cfg(windows)]
-mod touchpad;
-#[cfg(windows)]
 mod tray;
-
-// Feature unification only: pulls in `dioxus-desktop/transparent` (needed for
-// the see-through indicator window); the crate's API is reached through
-// `dioxus::desktop`.
-#[cfg(windows)]
-use dioxus_desktop as _;
 
 #[cfg(windows)]
 fn main() {
+    app::init_logging();
     tray::install();
     kanata_embed::start();
-    signal::spawn_all();
     tray::spawn_forwarder();
     app::launch();
 }

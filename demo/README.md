@@ -5,31 +5,22 @@
 A proof-of-concept for the `enable-touchpad` idea on Windows, shipped as a
 **single executable**:
 
-- **kanata runs embedded inside the app** (as a library, `kanata` v1.11): it
-  captures the keyboard through a low-level hook (no kernel driver needed),
-  activates a `mouse` layer while `CapsLock` is held (`Q`/`W`/`E` → mouse
-  left/middle/right buttons, `Left Alt` → `CapsLock`), and broadcasts the
-  layer state over a local TCP socket inside the same process.
-- **the Dioxus UI** reacts to the layer signal, **enables the touchpad while
-  CapsLock is held and disables it on release**, shows a click-through
-  indicator at the mouse position, and provides a tray icon plus a minimal
-  settings page.
-
-```
-enable-touchpad.exe (single file)
-├── kanata (embedded lib, LL-hook capture + SendInput output)
-│     ├── hold CapsLock → "mouse" layer + Q/W/E = mouse buttons
-│     └── LayerChange → 127.0.0.1:<port> (in-process TCP self-connect)
-├── Dioxus UI (tray + settings page + mouse-following indicator)
-└── touchpad enable/disable (PowerShell PnP device toggle)
-```
+- **kanata runs embedded inside the app** (as a library, `kanata` v1.11,
+  low-level-hook capture — no kernel driver, no separate process). While
+  `CapsLock` is held, a `mouse` layer activates (`Q`/`W`/`E` → mouse
+  buttons, `Left Alt` → `CapsLock`) and **Ctrl+Win+F24 is tapped once on
+  press and once on release**. The touchpad soft on/off is performed by
+  whatever the operating system / touchpad driver binds that combo to —
+  this app never enables or disables devices itself.
+- **the Dioxus UI** is a small settings window for the layer key bindings
+  (hidden by default, opened from the tray), with changes hot-applied to the
+  embedded kanata over its local TCP `Reload` command.
 
 ## Layout
 
 | Path | Purpose |
 |------|---------|
-| `kanata/enable-touchpad.kbd` | kanata layer config, embedded into the binary at compile time |
-| `../src/bin/enable-touchpad/` | the app: `main` / `app` (UI) / `config` / `kanata_embed` / `signal` / `touchpad` / `tray` |
+| `../src/bin/enable-touchpad/` | the app: `main` / `app` (UI + logging) / `config` / `kanata_embed` (config generation + embedded kanata) / `tray` |
 
 The app compiles only for Windows; other targets build a stub so the
 repository's Linux gates stay green.
@@ -38,35 +29,23 @@ repository's Linux gates stay green.
 
 1. **Build or download** the exe (`cargo build --release` on Windows, or the
    `test-build` CI artifact).
-2. **Run it as administrator** (device enable/disable is a system-level
-   operation). The embedded kanata config is written to
-   `%APPDATA%\enable-touchpad\kanata.kbd` on first launch.
-3. Hold `CapsLock` → the touchpad turns on, a blue pill appears next to the
-   mouse cursor, and `Q`/`W`/`E` act as mouse buttons. Release → everything
-   is restored and the touchpad turns off.
+2. **Run it as administrator.** The generated kanata config lives at
+   `%APPDATA%\enable-touchpad\kanata.kbd`; the log at
+   `%APPDATA%\enable-touchpad\enable-touchpad.log`.
+3. Hold `CapsLock` → the `mouse` layer activates (configurable `Q`/`W`/`E`
+   bindings) and the system performs the touchpad soft on/off.
+4. Settings: right-click the tray icon → `打开设置`. Saving regenerates the
+   config and hot-reloads the embedded kanata — no restart needed.
 
-No separate kanata installation and no kernel driver are needed — kanata's
-default Windows mode uses a low-level keyboard hook. Do **not** run an
-external kanata at the same time (double key capture and a TCP port clash).
-
-## Settings page
-
-- **触摸板状态** + manual enable/disable/refresh buttons (works without kanata —
-  handy for smoke-testing permissions).
-- **信号源**: TCP (`LayerChange` stream, recommended) or F24 key events.
-- **总开关 / 指示器**: master switch for the feature and the mouse indicator,
-  with a preview button.
-- **应用设置 / 保存配置**: runtime apply (live) and persistence to
-  `%APPDATA%\enable-touchpad\config.json`.
+Do **not** run an external kanata at the same time (double key capture).
 
 ## Demo limitations
 
-- Touchpad enable/disable shells out to PowerShell
-  (`Disable-PnpDevice`/`Enable-PnpDevice` matching `touchpad|触摸板` friendly
-  names) — demo-grade; a production build would use CfgMgr32 from a small
-  elevated helper.
-- The device must expose a friendly name containing "touchpad"/"触摸板";
-  PS/2-touchpad OEM names may need the pattern extended.
+- The Ctrl+Win+F24 tap semantics (activate on press, deactivate on release)
+  depend on how the system's touchpad driver handles the combo; if your
+  driver toggles differently, the layer config in
+  `%APPDATA%\enable-touchpad\kanata.kbd` is the single place to adjust.
+- Touchpad enable/disable is entirely system-owned — the app has no fallback
+  for machines where the combo is unbound.
 - The UI renders in a system WebView (dioxus desktop); a pure-GPU native
   renderer (Blitz) is not production-ready yet.
-- F24 in TCP mode is emitted but inert — nothing registers it as a hotkey.

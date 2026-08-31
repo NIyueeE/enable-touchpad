@@ -1,45 +1,56 @@
 //! Embeds kanata as an in-process library so the demo ships as a single exe.
 //!
-//! Startup mirrors kanata's own `win_gui.rs`: build `ValidatedArgs`, create
-//! the state machine, start the TCP server (the existing `signal.rs` TCP
-//! reader connects to it for `LayerChange` events), start the processing and
-//! notification loops, then block this thread on the LL-hook event loop.
-//! The keyboard config is embedded into the binary at compile time.
+//! Responsibilities:
+//! - generate the kanata layer config from [`crate::config::AppConfig`] and
+//!   write it to `%APPDATA%\enable-touchpad\kanata.kbd`;
+//! - start the kanata stack on a dedicated thread (LL-hook capture, layer
+//!   handling, and a loopback TCP server used only as the internal control
+//!   channel);
+//! - hot-apply config changes by sending the TCP `Reload` command, so saving
+//!   in the settings page takes effect without a restart.
+//!
+//! The `CapsLock` mapping emits Ctrl+Win+F24 as a tap on press and on release:
+//! the operating system / touchpad driver owns what that combo does (the
+//! soft enable/disable of the touchpad). This app never disables devices.
 
+use crate::config::{self, AppConfig};
 use kanata_state_machine::{Kanata, TcpServer, ValidatedArgs};
+use std::io::{BufRead, BufReader, Write};
 use std::sync::mpsc::sync_channel;
 
-/// The keyboard layer config, compiled into the binary.
-pub const CFG_TEXT: &str = include_str!("../../../demo/kanata/enable-touchpad.kbd");
+/// Fixed loopback port of the embedded kanata TCP server. Internal control
+/// channel only — never exposed in the UI.
+const INTERNAL_PORT: u16 = 5829;
 
 /// Spawn the embedded kanata stack on a dedicated thread (call once).
 pub fn start() {
     std::thread::spawn(|| {
         if let Err(e) = run() {
-            crate::app::push_log(format!("内嵌 kanata 启动失败: {e}"));
+            log::error!("embedded kanata failed to start: {e}");
         }
     });
 }
 
+/// Regenerate the kanata config file for `cfg` and hot-reload the running
+/// embedded instance.
+pub fn apply_config(cfg: &AppConfig) -> Result<(), String> {
+    write_config_file(cfg)?;
+    send_reload()?;
+    log::info!("config regenerated and hot-applied: {cfg:?}");
+    Ok(())
+}
+
 fn run() -> Result<(), String> {
-    let port = crate::config::shared().port();
-    let addr = format!("127.0.0.1:{port}");
-
-    // Materialise the embedded config so kanata's file-based API can read it
-    // (and so users can tweak the file for experiments).
-    let cfg_path = config_path()?;
-    if let Some(parent) = cfg_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-    std::fs::write(&cfg_path, CFG_TEXT).map_err(|e| e.to_string())?;
-
+    let cfg = AppConfig::load();
+    let cfg_path = write_config_file(&cfg)?;
+    let addr = format!("127.0.0.1:{INTERNAL_PORT}");
     let tcp_address: std::net::SocketAddr = addr.parse().map_err(|e| format!("{e}"))?;
+
     let args = ValidatedArgs {
         paths: vec![cfg_path],
-        tcp_server_address: Some(addr.parse().map_err(|e| format!("tcp 地址解析失败: {e}"))?),
+        tcp_server_address: Some(addr.parse().map_err(|e| format!("{e}"))?),
         nodelay: true,
     };
-
     let kanata = Kanata::new_arc(&args).map_err(|e| format!("{e:?}"))?;
 
     let (tx, rx) = sync_channel(100);
@@ -49,16 +60,66 @@ fn run() -> Result<(), String> {
     Kanata::start_processing_loop(kanata.clone(), rx, Some(ntx), true);
     Kanata::start_notification_loop(nrx, server.connections);
 
-    crate::app::push_log(format!(
-        "内嵌 kanata 已启动:层捕获运行中,TCP 127.0.0.1:{port}"
-    ));
-    // Blocks this thread: installs the LL keyboard hook and pumps messages.
+    log::info!("embedded kanata started on {addr}");
+    // Blocks this thread: installs the low-level keyboard hook and pumps
+    // messages for it.
     Kanata::event_loop(kanata, tx).map_err(|e| format!("{e:?}"))
 }
 
+/// Materialise the generated config for `cfg` at the canonical path.
+fn write_config_file(cfg: &AppConfig) -> Result<std::path::PathBuf, String> {
+    let path = config_path()?;
+    std::fs::write(&path, generate_config_text(cfg)).map_err(|e| e.to_string())?;
+    Ok(path)
+}
+
 fn config_path() -> Result<std::path::PathBuf, String> {
-    let base = std::env::var_os("APPDATA").ok_or("APPDATA is not set")?;
-    Ok(std::path::PathBuf::from(base)
-        .join("enable-touchpad")
-        .join("kanata.kbd"))
+    Ok(config::app_dir()?.join("kanata.kbd"))
+}
+
+/// Send the `Reload` command to the embedded kanata TCP server.
+fn send_reload() -> Result<(), String> {
+    let mut stream = std::net::TcpStream::connect(("127.0.0.1", INTERNAL_PORT))
+        .map_err(|e| format!("kanata 控制通道连接失败: {e}"))?;
+    stream
+        .write_all(br#"{"Reload":{"wait":true}}"#)
+        .and_then(|()| stream.write_all(b"\n"))
+        .map_err(|e| format!("kanata reload 命令发送失败: {e}"))?;
+    let mut response = String::new();
+    BufReader::new(stream)
+        .read_line(&mut response)
+        .map_err(|e| format!("kanata reload 响应读取失败: {e}"))?;
+    log::info!("kanata reload response: {}", response.trim());
+    Ok(())
+}
+
+/// Generate the kanata layer config from the app configuration.
+///
+/// While `CapsLock` is held: the `mouse` layer activates and Ctrl+Win+F24 is
+/// tapped once on press and once again on release (soft toggle handled by the
+/// operating system / touchpad driver).
+pub fn generate_config_text(cfg: &AppConfig) -> String {
+    let caps_slot = if cfg.feature_enabled {
+        r"(switch
+    ((input real caps)) (multi (layer-while-held mouse) lctl lmeta f24) break
+    ((not (input real caps))) (multi lctl lmeta f24) break
+  )"
+        .to_string()
+    } else {
+        "caps".to_string()
+    };
+    format!(
+        ";; generated by enable-touchpad — edits are overwritten by the app\n\
+         (defcfg process-unmapped-keys no)\n\
+         \n\
+         (defsrc caps q w e lalt)\n\
+         \n\
+         (deflayer base\n  {caps_slot}\n  q\n  w\n  e\n  lalt\n)\n\
+         \n\
+         (deflayer mouse\n  XX\n  {}\n  {}\n  {}\n  {}\n)\n",
+        config::mouse_action(&cfg.key_q),
+        config::mouse_action(&cfg.key_w),
+        config::mouse_action(&cfg.key_e),
+        config::lalt_action(&cfg.key_lalt),
+    )
 }

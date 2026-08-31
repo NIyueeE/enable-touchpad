@@ -1,41 +1,43 @@
-//! Persistent demo configuration plus runtime settings shared with the
-//! signal threads (so changes from the settings page apply live).
+//! Persistent configuration: the mouse-layer key bindings plus a master
+//! switch. Saving regenerates the embedded kanata config and hot-applies it.
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
-use std::sync::{Mutex, OnceLock};
 
-/// Signal source: watch kanata's TCP `LayerChange` stream.
-pub const MODE_TCP: u8 = 0;
-/// Signal source: watch the raw F24 press/release that kanata emits.
-pub const MODE_F24: u8 = 1;
-/// Port kanata listens on when started with `-p`.
-pub const DEFAULT_TCP_PORT: u16 = 5829;
+/// Bindings offered for the `Q`/`W`/`E` layer keys: `(id, label)`.
+pub const MOUSE_ACTIONS: [(&str, &str); 4] = [
+    ("left", "左键"),
+    ("middle", "中键"),
+    ("right", "右键"),
+    ("none", "无"),
+];
+
+/// Bindings offered for the `Left Alt` layer key: `(id, label)`.
+pub const LALT_ACTIONS: [(&str, &str); 2] = [("caps", "CapsLock"), ("none", "无")];
 
 /// Contents of `%APPDATA%\enable-touchpad\config.json`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
-    /// `true` -> TCP mode, `false` -> F24 key mode.
-    pub use_tcp: bool,
-    /// TCP port of the kanata server.
-    pub tcp_port: u16,
-    /// Layer name whose activation toggles the touchpad.
-    pub layer_name: String,
-    /// Show the click-through indicator at the mouse position.
-    pub indicator_enabled: bool,
-    /// Master switch for the whole CapsLock-layer feature.
+    /// Master switch: `false` makes `CapsLock` behave stock.
     pub feature_enabled: bool,
+    /// Binding id for the `Q` layer key (see [`MOUSE_ACTIONS`]).
+    pub key_q: String,
+    /// Binding id for the `W` layer key.
+    pub key_w: String,
+    /// Binding id for the `E` layer key.
+    pub key_e: String,
+    /// Binding id for the `Left Alt` layer key (see [`LALT_ACTIONS`]).
+    pub key_lalt: String,
 }
 
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            use_tcp: true,
-            tcp_port: DEFAULT_TCP_PORT,
-            layer_name: "mouse".to_string(),
-            indicator_enabled: true,
             feature_enabled: true,
+            key_q: "left".to_string(),
+            key_w: "middle".to_string(),
+            key_e: "right".to_string(),
+            key_lalt: "caps".to_string(),
         }
     }
 }
@@ -43,12 +45,7 @@ impl Default for AppConfig {
 impl AppConfig {
     /// Path of the config file, or `None` when `APPDATA` is unset.
     pub fn path() -> Option<PathBuf> {
-        let base = std::env::var_os("APPDATA")?;
-        Some(
-            PathBuf::from(base)
-                .join("enable-touchpad")
-                .join("config.json"),
-        )
+        Some(app_dir().ok()?.join("config.json"))
     }
 
     /// Load the config, falling back to defaults on any problem.
@@ -70,80 +67,28 @@ impl AppConfig {
     }
 }
 
-/// Runtime copy of [`AppConfig`] readable from any thread.
-pub struct Shared {
-    mode: AtomicU8,
-    port: Mutex<u16>,
-    layer_name: Mutex<String>,
-    enabled: AtomicBool,
-    indicator: AtomicBool,
+/// Application data directory, created on demand.
+pub fn app_dir() -> Result<PathBuf, String> {
+    let base = std::env::var_os("APPDATA").ok_or("APPDATA is not set")?;
+    let dir = PathBuf::from(base).join("enable-touchpad");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
 }
 
-static SHARED: OnceLock<Shared> = OnceLock::new();
-
-/// Process-wide shared settings, initialised from the persisted config.
-pub fn shared() -> &'static Shared {
-    SHARED.get_or_init(|| Shared::from_cfg(&AppConfig::load()))
+/// Map a binding id to the kanata action emitted by a `Q`/`W`/`E` layer key.
+pub fn mouse_action(id: &str) -> &'static str {
+    match id {
+        "left" => "mlft",
+        "middle" => "mmid",
+        "right" => "mrgt",
+        _ => "XX",
+    }
 }
 
-impl Shared {
-    fn from_cfg(cfg: &AppConfig) -> Self {
-        Self {
-            mode: AtomicU8::new(if cfg.use_tcp { MODE_TCP } else { MODE_F24 }),
-            port: Mutex::new(cfg.tcp_port),
-            layer_name: Mutex::new(cfg.layer_name.clone()),
-            enabled: AtomicBool::new(cfg.feature_enabled),
-            indicator: AtomicBool::new(cfg.indicator_enabled),
-        }
-    }
-
-    /// Copy current values out of the settings page into the runtime.
-    pub fn apply(&self, cfg: &AppConfig) {
-        self.mode.store(
-            if cfg.use_tcp { MODE_TCP } else { MODE_F24 },
-            Ordering::Relaxed,
-        );
-        if let Ok(mut port) = self.port.lock() {
-            *port = cfg.tcp_port;
-        }
-        if let Ok(mut name) = self.layer_name.lock() {
-            (*name).clone_from(&cfg.layer_name);
-        }
-        self.enabled.store(cfg.feature_enabled, Ordering::Relaxed);
-        self.indicator
-            .store(cfg.indicator_enabled, Ordering::Relaxed);
-    }
-
-    /// `true` when the TCP signal source is selected.
-    pub fn is_tcp(&self) -> bool {
-        self.mode.load(Ordering::Relaxed) == MODE_TCP
-    }
-
-    /// `true` when the F24 key signal source is selected.
-    pub fn is_f24(&self) -> bool {
-        !self.is_tcp()
-    }
-
-    /// Master switch for the CapsLock-layer feature.
-    pub fn feature_enabled(&self) -> bool {
-        self.enabled.load(Ordering::Relaxed)
-    }
-
-    /// Whether the on-screen layer indicator should be shown.
-    pub fn indicator_enabled(&self) -> bool {
-        self.indicator.load(Ordering::Relaxed)
-    }
-
-    /// Current kanata TCP port.
-    pub fn port(&self) -> u16 {
-        self.port.lock().map_or(DEFAULT_TCP_PORT, |port| *port)
-    }
-
-    /// Current layer name to watch for.
-    pub fn layer_name(&self) -> String {
-        self.layer_name
-            .lock()
-            .map(|n| n.clone())
-            .unwrap_or_default()
+/// Map a binding id to the kanata action emitted by the `Left Alt` layer key.
+pub fn lalt_action(id: &str) -> &'static str {
+    match id {
+        "caps" => "caps",
+        _ => "XX",
     }
 }

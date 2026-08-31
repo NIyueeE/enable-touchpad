@@ -32,20 +32,36 @@ something the next session needs to know.
 ### Windows feasibility demo (branch `demo/windows-feasibility`, 2026-08-31)
 
 - Goal: validate the enable-touchpad idea — hold CapsLock in a kanata layer
-  → touchpad enabled + Q/W/E act as mouse buttons + indicator at the mouse;
-  release → restore and disable. Built per the user's hand-drawn sketch.
-- **Single-exe architecture (v2 of the demo)**: kanata v1.11 is embedded as a
-  library (`kanata_state_machine` from crates.io, default features =
-  LL-hook capture + SendInput output — NO Interception driver and NO external
-  kanata process). Startup mirrors kanata's own `win_gui.rs`:
-  `ValidatedArgs` → `new_arc` → `TcpServer(127.0.0.1:<port>)` →
-  `start_processing_loop` → `start_notification_loop` → `event_loop`
-  (blocking LL-hook thread). Config is `include_str!`-embedded and written
-  to `%APPDATA%\enable-touchpad\kanata.kbd` at startup. The existing TCP
-  self-connect signal path is unchanged.
-- `demo/kanata/enable-touchpad.kbd`: single config serving both signal modes
-  (in-process TCP `LayerChange`, or the emitted `Ctrl+Win+F24` combo);
-  validated with `kanata --check`.
+  → touchpad enabled + Q/W/E act as mouse buttons; release → restore and
+  soft-disable. Built per the user's hand-drawn sketch.
+- **v3 (current), after the user's device test rejected v2 choices**:
+  - touchpad on/off is NOT app-controlled: the embedded kanata taps
+    Ctrl+Win+F24 on CapsLock press AND release; the system / touchpad driver
+    owns the soft toggle. The PowerShell PnP device-disable path was removed
+    (user rejected hard device disable).
+  - signal sources collapsed to the combo only: the TCP LayerChange reader
+    and the rdev F24 watcher were removed ("no backward-compatible保留 of
+    rejected features").
+  - the mouse-following indicator was removed (user: useless + render cost).
+  - the settings window is small (460×340), starts hidden, opens only from
+    the tray right-click menu (打开设置 / 退出).
+  - the settings page configures the layer bindings (Q/W/E → mouse buttons,
+    Left Alt → CapsLock) plus a master switch; saving regenerates the kanata
+    config and hot-applies it via the TCP `Reload` command (protocol:
+    `{"Reload":{"wait":true}}` on 127.0.0.1:5829, internal only).
+  - detailed logging goes to `%APPDATA%\enable-touchpad\enable-touchpad.log`
+    via simplelog (kanata's `log` output lands there too); the in-app log
+    area was removed.
+  - the static `demo/kanata/*.kbd` file was removed — the config is
+    generated from code (single source of truth) and syntax-validated with
+    `kanata --check` (switch-case form: `((input real caps)) <action> break`,
+    three sibling forms per case).
+- **Single-exe architecture**: kanata v1.11 embedded as a library
+  (`kanata_state_machine` from crates.io, default features minus zippychord
+  = LL-hook capture + SendInput output — NO Interception driver and NO
+  external kanata process). Startup mirrors kanata's own `win_gui.rs`:
+  `ValidatedArgs` → `new_arc` → TcpServer → `start_processing_loop` →
+  `start_notification_loop` → `event_loop` (blocking LL-hook thread).
 - License note: embedding kanata pulls **LGPL-3.0-only** into the dependency
   graph (allowed in deny.toml with a comment). Private/internal use has no
   obligations, but DISTRIBUTING the exe requires the kanata source link plus

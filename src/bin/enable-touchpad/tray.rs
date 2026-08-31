@@ -1,5 +1,4 @@
-//! System tray: a generated icon with a minimal menu whose selections are
-//! forwarded into [`crate::app::handle_tray`].
+//! System tray: right-click menu with only "open settings" and "quit".
 
 use crate::app;
 use std::time::Duration;
@@ -9,34 +8,18 @@ use tray_icon::menu::{IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem}
 /// Actions the tray can request from the app.
 #[derive(Debug, Clone, Copy)]
 pub enum TrayAction {
-    /// Show and focus the main settings window.
-    OpenMain,
-    /// Enable the touchpad now.
-    Enable,
-    /// Disable the touchpad now.
-    Disable,
-    /// Re-query the touchpad state.
-    Refresh,
-    /// Exit the demo.
+    /// Show and focus the settings window.
+    OpenSettings,
+    /// Exit the app.
     Quit,
 }
 
 /// Build the tray icon and menu. Call once from `main`; the handle is leaked
 /// on purpose because `TrayIcon` is `!Send` and must simply outlive `main`.
 pub fn install() {
-    let open = MenuItem::with_id("et-open", "打开主窗口", true, None);
-    let enable = MenuItem::with_id("et-enable", "启用触摸板", true, None);
-    let disable = MenuItem::with_id("et-disable", "禁用触摸板", true, None);
-    let refresh = MenuItem::with_id("et-refresh", "刷新状态", true, None);
+    let settings = MenuItem::with_id("et-settings", "打开设置", true, None);
     let quit = MenuItem::with_id("et-quit", "退出", true, None);
-    let items: [&dyn IsMenuItem; 6] = [
-        &open,
-        &enable,
-        &disable,
-        &refresh,
-        &PredefinedMenuItem::separator(),
-        &quit,
-    ];
+    let items: [&dyn IsMenuItem; 3] = [&settings, &PredefinedMenuItem::separator(), &quit];
     let menu = Menu::new();
     for item in items {
         let _ = menu.append(item);
@@ -45,7 +28,7 @@ pub fn install() {
         && let Ok(tray) = TrayIconBuilder::new()
             .with_id("enable-touchpad-tray")
             .with_menu(Box::new(menu))
-            .with_tooltip("enable-touchpad (demo)")
+            .with_tooltip("enable-touchpad")
             .with_menu_on_left_click(false)
             .with_icon(icon)
             .build()
@@ -70,16 +53,13 @@ pub fn spawn_forwarder() {
 
 fn decode(id: &str) -> Option<TrayAction> {
     match id {
-        "et-open" => Some(TrayAction::OpenMain),
-        "et-enable" => Some(TrayAction::Enable),
-        "et-disable" => Some(TrayAction::Disable),
-        "et-refresh" => Some(TrayAction::Refresh),
+        "et-settings" => Some(TrayAction::OpenSettings),
         "et-quit" => Some(TrayAction::Quit),
         _ => None,
     }
 }
 
-/// A 32x32 blue disc with a darker rim, generated in-process so the demo
+/// A 32x32 blue disc with a darker rim, generated in-process so the app
 /// ships no binary assets.
 fn icon_rgba() -> Vec<u8> {
     let mut data = Vec::with_capacity(32 * 32 * 4);
