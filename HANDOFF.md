@@ -44,7 +44,10 @@ something the next session needs to know.
     rejected features").
   - the mouse-following indicator was removed (user: useless + render cost).
   - the settings window is small (460×340), starts hidden, opens only from
-    the tray right-click menu (打开设置 / 退出).
+    the tray right-click menu (打开设置 / 退出). UI v2: Gruvbox palette,
+    system light/dark via `prefers-color-scheme`, native decorations AND
+    menu bar removed (custom draggable title strip with minimize/hide
+    buttons), scrollbar hidden, custom-styled select/checkbox.
   - the settings page configures the layer bindings (Q/W/E → mouse buttons,
     Left Alt → CapsLock) plus a master switch; saving regenerates the kanata
     config and hot-applies it via the TCP `Reload` command (protocol:

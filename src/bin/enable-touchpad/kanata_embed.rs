@@ -95,12 +95,14 @@ fn send_reload() -> Result<(), String> {
 
 /// Generate the kanata layer config from the app configuration.
 ///
-/// While `CapsLock` is held: the `mouse` layer activates and Ctrl+Win+F24 is
-/// tapped once at press (a full down+up wave, closest to a real key press) —
-/// the operating system / touchpad driver owns what that combo does (the soft
+/// While `CapsLock` is held: the `mouse` layer activates and the
+/// Ctrl+Win+F24 chord is held for the whole press (all three keys go down
+/// together, up together — so Windows never sees a lone Win tap, and the
+/// touchpad driver receives the real chord) — the operating system / touchpad
+/// driver owns what that combo does (the soft
 pub fn generate_config_text(cfg: &AppConfig) -> String {
     let caps_slot = if cfg.feature_enabled {
-        r"(multi (layer-while-held mouse) (macro lctl lmeta f24))".to_string()
+        r"(multi (layer-while-held mouse) lctl lmeta f24)".to_string()
     } else {
         "caps".to_string()
     };

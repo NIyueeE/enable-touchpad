@@ -1,10 +1,11 @@
-//! Dioxus UI: a small settings window (hidden by default, opened from the
-//! tray) for the mouse-layer key bindings, plus file logging setup.
+//! Dioxus UI: a small Gruvbox-styled settings window (hidden by default,
+//! opened from the tray) for the mouse-layer key bindings, plus file logging
+//! setup. Follows the system light/dark theme via `prefers-color-scheme`.
 //!
 //! The touchpad itself is toggled by the operating system: the embedded
-//! kanata taps Ctrl+Win+F24 on `CapsLock` press/release, and whatever the
-//! system binds that combo to performs the soft enable/disable. This app
-//! never touches devices.
+//! kanata taps Ctrl+Win+F24 on `CapsLock` press, and whatever the system
+//! binds that combo to performs the soft enable/disable. This app never
+//! touches devices.
 
 use crate::config::{self, AppConfig, LALT_ACTIONS, MOUSE_ACTIONS};
 use crate::kanata_embed;
@@ -15,6 +16,32 @@ use std::sync::{Arc, OnceLock};
 
 /// Main window handle; tao windows are `Send`, so the tray thread can use it.
 static MAIN_WINDOW: OnceLock<Arc<tao::window::Window>> = OnceLock::new();
+
+/// Gruvbox palette for both themes; the webview follows the system setting.
+const GRUVBOX_CSS: &str = r#"
+:root{--bg0:#282828;--bg1:#3c3836;--bg2:#504945;--fg:#ebdbb2;--dim:#a89984;
+--line:#504945;--accent:#83a598;--accent2:#8ec07c;--red:#fb4934;
+--chev:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M1 1l4 4 4-4' stroke='%23a89984' stroke-width='1.5' fill='none'/></svg>");}
+@media (prefers-color-scheme: light){:root{--bg0:#fbf1c7;--bg1:#ebdbb2;--bg2:#d5c4a1;--fg:#3c3836;--dim:#7c6f64;
+--line:#d5c4a1;--accent:#076678;--accent2:#427b58;--red:#9d0006;
+--chev:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M1 1l4 4 4-4' stroke='%237c6f64' stroke-width='1.5' fill='none'/></svg>");}}
+html,body{margin:0;overflow:hidden;background:var(--bg0);}
+*{box-sizing:border-box;user-select:none;cursor:default;
+font-family:'Segoe UI','Microsoft YaHei',system-ui,sans-serif;}
+select{appearance:none;-webkit-appearance:none;color:var(--fg);
+background:var(--bg1) var(--chev) no-repeat right 8px center;
+border:1px solid var(--line);border-radius:6px;padding:5px 26px 5px 10px;
+font-size:13px;cursor:pointer;}
+select:hover{border-color:var(--accent);}
+input[type=checkbox]{appearance:none;-webkit-appearance:none;width:15px;height:15px;
+border:1px solid var(--line);border-radius:4px;background:var(--bg1);
+display:inline-grid;place-content:center;cursor:pointer;margin:0;}
+input[type=checkbox]::before{content:"";width:8px;height:8px;
+transform:scale(0);transition:transform .08s;background:var(--accent);
+clip-path:polygon(14% 44%,0 65%,50% 100%,100% 16%,80% 0,43% 62%);}
+input[type=checkbox]:checked{border-color:var(--accent);}
+input[type=checkbox]:checked::before{transform:scale(1);}
+"#;
 
 /// Configure logging to `%APPDATA%\enable-touchpad\enable-touchpad.log`.
 /// Kanata logs through the `log` crate too, so its output lands in the same
@@ -46,7 +73,8 @@ pub fn launch() {
             WindowBuilder::new()
                 .with_title("enable-touchpad")
                 .with_visible(false)
-                .with_inner_size(LogicalSize::new(460.0, 340.0)),
+                .with_decorations(false)
+                .with_inner_size(LogicalSize::new(440.0, 330.0)),
         )
         .with_close_behaviour(WindowCloseBehaviour::WindowHides);
     dioxus::LaunchBuilder::desktop()
@@ -89,35 +117,34 @@ fn ui_root() -> Element {
         log::info!("main window created");
     });
 
-    let section = "background:#1c1f26;border-radius:12px;padding:14px 16px;";
-    let label = "color:#9aa3b2;font-size:12px;margin-bottom:8px;";
-    let button = "background:#2f6fd6;color:#fff;border:none;border-radius:8px;padding:7px 16px;cursor:pointer;font-size:13px;";
-    let row = "display:flex;align-items:center;margin-bottom:8px;gap:10px;";
-
     rsx! {
+        style { "{GRUVBOX_CSS}" }
         div {
-            style: "background:#14161a;color:#e6e9ef;font-family:'Segoe UI','Microsoft YaHei',system-ui,sans-serif;padding:14px 16px;box-sizing:border-box;",
-
+            style: "background:var(--bg0);color:var(--fg);height:100vh;display:flex;flex-direction:column;",
+            title_bar {}
             div {
-                style: "{section}",
-                div { style: "{label}", "Mouse 层按键(CapsLock 按住时生效;松开时软关闭触摸板)" }
+                style: "flex:1;padding:4px 16px 10px 16px;display:flex;flex-direction:column;",
+                div {
+                    style: "color:var(--dim);font-size:12px;margin:6px 0 10px 0;",
+                    "Mouse 层按键(CapsLock 按住时生效,松开时还原)"
+                }
                 binding_row { name: "Q", value: key_q, actions: &MOUSE_ACTIONS }
                 binding_row { name: "W", value: key_w, actions: &MOUSE_ACTIONS }
                 binding_row { name: "E", value: key_e, actions: &MOUSE_ACTIONS }
                 binding_row { name: "Left Alt", value: key_lalt, actions: &LALT_ACTIONS }
                 div {
-                    style: "{row}",
+                    style: "display:flex;align-items:center;gap:8px;margin:8px 0 12px 0;",
                     input {
                         r#type: "checkbox",
                         checked: feature.cloned(),
                         onclick: move |_| feature.set(!feature.cloned()),
                     }
-                    span { "总开关(CapsLock 层功能)" }
+                    span { style: "font-size:13px;", "总开关(CapsLock 层功能)" }
                 }
                 div {
-                    style: "{row}",
+                    style: "display:flex;align-items:center;gap:10px;",
                     button {
-                        style: "{button}",
+                        class: "btn-primary",
                         onclick: move |_| {
                             let cfg = AppConfig {
                                 feature_enabled: feature.cloned(),
@@ -133,15 +160,49 @@ fn ui_root() -> Element {
                         },
                         "保存并应用"
                     }
-                    span { style: "color:#9aa3b2;font-size:12px;", "{save_state}" }
+                    span { style: "color:var(--dim);font-size:12px;", "{save_state}" }
+                }
+                div {
+                    style: "margin-top:auto;color:var(--dim);font-size:11px;line-height:1.7;",
+                    "CapsLock 按下会发出 Ctrl+Win+F24(软开关由系统触摸板驱动执行)"
+                    br {}
+                    "日志:%APPDATA%\\enable-touchpad\\enable-touchpad.log"
                 }
             }
+        }
+    }
+}
 
-            div {
-                style: "color:#5d6572;font-size:12px;line-height:1.8;margin-top:10px;",
-                "CapsLock 按下/松开会各发出一次 Ctrl+Win+F24,由系统(触摸板驱动)完成触摸板软开关。"
-                br {}
-                "详细日志:%APPDATA%\\enable-touchpad\\enable-touchpad.log"
+#[component]
+fn title_bar() -> Element {
+    rsx! {
+        div {
+            style: "height:34px;display:flex;align-items:center;padding:0 6px 0 12px;gap:8px;
+                    background:var(--bg1);border-bottom:1px solid var(--line);
+                    font-size:12px;color:var(--dim);",
+            onmousedown: move |_| {
+                let _ = window().drag_window();
+            },
+            span {
+                style: "width:9px;height:9px;border-radius:50%;background:var(--accent);",
+            }
+            span { "enable-touchpad" }
+            span { style: "flex:1;" }
+            button {
+                class: "btn-title",
+                onclick: move |_| {
+                    window().set_minimized(true);
+                },
+                "—"
+            }
+            button {
+                class: "btn-close",
+                onclick: move |_| {
+                    if let Some(win) = MAIN_WINDOW.get() {
+                        win.set_visible(false);
+                    }
+                },
+                "✕"
             }
         }
     }
@@ -153,8 +214,8 @@ fn binding_row(
     mut value: Signal<String>,
     actions: &'static [(&'static str, &'static str)],
 ) -> Element {
-    let row = "display:flex;align-items:center;margin-bottom:8px;gap:10px;";
-    let key_label = "width:64px;color:#e6e9ef;font-size:13px;";
+    let row = "display:flex;align-items:center;margin-bottom:8px;gap:12px;";
+    let key_label = "width:60px;color:var(--fg);font-size:13px;";
     let items = actions
         .iter()
         .map(|(id, text)| (*id, *text))
@@ -165,7 +226,6 @@ fn binding_row(
             style: "{row}",
             span { style: "{key_label}", "{name}" }
             select {
-                style: "background:#14161a;color:#e6e9ef;border:1px solid #343a46;border-radius:6px;padding:4px 8px;width:110px;",
                 onchange: move |e| value.set(e.value()),
                 for (id, text) in items {
                     option { value: "{id}", selected: value.cloned() == id, "{text}" }
