@@ -9,12 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Windows feasibility demo (`demo/`, demo branch for now): a Dioxus desktop
-  app (`src/bin/enable-touchpad`) with system tray, minimal settings page and
-  a mouse-following layer indicator, plus a `kanata` CapsLock layer config
-  that enables the touchpad while CapsLock is held and restores on release.
-  See `demo/README.md`; the app compiles for `cfg(windows)` only (other
-  targets build a stub).
+- Windows feasibility demo (`demo/`, demo branch for now): a single-exe
+  Dioxus desktop app (`src/bin/enable-touchpad`) with system tray, minimal
+  settings page and a mouse-following layer indicator. **kanata v1.11 is
+  embedded as a library** (LL-hook keyboard capture, no kernel driver, no
+  separate kanata process) with the CapsLock layer config compiled into the
+  binary; the touchpad is enabled while CapsLock is held and restored on
+  release. See `demo/README.md`; the app compiles for `cfg(windows)` only
+  (other targets build a stub).
 
 ## [0.1.0] - 2026-08-31
 

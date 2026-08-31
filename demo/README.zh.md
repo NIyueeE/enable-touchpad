@@ -2,49 +2,45 @@
 
 > English | [README.md](README.md)
 
-`enable-touchpad` 设想在 Windows 上的概念验证:
+`enable-touchpad` 设想在 Windows 上的概念验证,交付形态是**单个可执行文件**:
 
-- **kanata** 负责键盘:按住 `CapsLock` 激活 `mouse` 层(`Q`/`W`/`E` → 鼠标
-  左/中/右键,`Left Alt` → `CapsLock`),同时在按住期间保持输出一个系统默认
-  无绑定的组合键 `Ctrl+Win+F24`。
-- **伴随应用**(`src/bin/enable-touchpad`,Dioxus 构建)接收层信号,在
-  **按住 CapsLock 期间启用触摸板、松开时禁用**,在鼠标位置显示可穿透点击的
-  激活提示,并提供系统托盘图标和极简设置页。
+- **kanata 以库的形式内嵌在本应用里**(kanata v1.11):通过低级键盘钩子捕获
+  输入(**无需安装内核驱动**),按住 `CapsLock` 激活 `mouse` 层(`Q`/`W`/`E`
+  → 鼠标左/中/右键,`Left Alt` → `CapsLock`),并把层状态通过进程内的本地
+  TCP socket 广播。
+- **Dioxus UI** 接收层信号,在**按住 CapsLock 期间启用触摸板、松开时禁用**,
+  在鼠标位置显示可穿透点击的激活提示,并提供系统托盘图标和极简设置页。
 
 ```
-按住 CapsLock ──▶ kanata 层 "mouse" ──▶ 信号 ──▶ Dioxus 应用
-   (Q/W/E = 鼠标按键)                  TCP LayerChange      │
-                                        或 F24 按下/释放      ├─▶ 启用触摸板
-                                                              ├─▶ 鼠标处指示器
-松开 CapsLock ──▶ 层还原 ─────────────────────────────────────┴─▶ 禁用触摸板
+enable-touchpad.exe(单文件)
+├── kanata(内嵌库,LL 钩子捕获 + SendInput 注出)
+│     ├── 按住 CapsLock → "mouse" 层 + Q/W/E = 鼠标按键
+│     └── LayerChange → 127.0.0.1:<port>(进程内 TCP 自连)
+├── Dioxus UI(托盘 + 设置页 + 鼠标跟随指示器)
+└── 触摸板启用/禁用(PowerShell PnP 设备操作)
 ```
 
 ## 目录结构
 
 | 路径 | 用途 |
 |------|------|
-| `kanata/enable-touchpad.kbd` | kanata 层配置(已用 `kanata --check` 验证) |
-| `../src/bin/enable-touchpad/` | 应用代码:`main` / `app`(UI)/ `config` / `signal` / `touchpad` / `tray` |
+| `kanata/enable-touchpad.kbd` | kanata 层配置(编译期嵌入二进制) |
+| `../src/bin/enable-touchpad/` | 应用代码:`main` / `app`(UI)/ `config` / `kanata_embed` / `signal` / `touchpad` / `tray` |
 
 应用只在 Windows 下编译;其他目标编译为占位桩,保证仓库的 Linux 门禁不受影响。
 
 ## Windows 部署步骤
 
-1. **安装 kanata 与 Interception 驱动** —— 从
-   <https://github.com/jtroo/kanata/releases> 获取 kanata,然后安装其在
-   Windows 上依赖的 [Interception 驱动](https://github.com/oblitum/Interception)
-   并重启。
-2. **启动 kanata**(二选一信号源):
-   - TCP 模式:`kanata -c enable-touchpad.kbd -p 5829`
-   - F24 模式:`kanata -c enable-touchpad.kbd`
-3. **以管理员身份构建并运行应用**(启用/禁用设备是系统级操作):
-
-   ```powershell
-   cargo run --bin enable-touchpad
-   ```
-
-4. 按住 `CapsLock` → 触摸板打开,鼠标旁出现蓝色提示条,`Q`/`W`/`E` 变为
+1. **构建或下载** exe(Windows 上 `cargo build --release`,或取 CI 的
+   test-build 产物)。
+2. **以管理员身份运行**(启用/禁用设备是系统级操作)。内嵌的 kanata 配置会在
+   首次启动时写入 `%APPDATA%\enable-touchpad\kanata.kbd`。
+3. 按住 `CapsLock` → 触摸板打开,鼠标旁出现蓝色提示条,`Q`/`W`/`E` 变为
    鼠标按键;松开 → 全部还原,触摸板关闭。
+
+**无需单独安装 kanata,也无需内核驱动**——kanata 的 Windows 默认模式走低级
+键盘钩子。**不要同时再运行一个外部 kanata**(会造成双重按键捕获和 TCP 端口
+冲突)。
 
 ## 设置页说明
 

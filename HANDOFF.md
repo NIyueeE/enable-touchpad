@@ -34,9 +34,22 @@ something the next session needs to know.
 - Goal: validate the enable-touchpad idea — hold CapsLock in a kanata layer
   → touchpad enabled + Q/W/E act as mouse buttons + indicator at the mouse;
   release → restore and disable. Built per the user's hand-drawn sketch.
+- **Single-exe architecture (v2 of the demo)**: kanata v1.11 is embedded as a
+  library (`kanata_state_machine` from crates.io, default features =
+  LL-hook capture + SendInput output — NO Interception driver and NO external
+  kanata process). Startup mirrors kanata's own `win_gui.rs`:
+  `ValidatedArgs` → `new_arc` → `TcpServer(127.0.0.1:<port>)` →
+  `start_processing_loop` → `start_notification_loop` → `event_loop`
+  (blocking LL-hook thread). Config is `include_str!`-embedded and written
+  to `%APPDATA%\enable-touchpad\kanata.kbd` at startup. The existing TCP
+  self-connect signal path is unchanged.
 - `demo/kanata/enable-touchpad.kbd`: single config serving both signal modes
-  (TCP `LayerChange` via `-p 5829`, or the emitted `Ctrl+Win+F24` combo);
-  validated with `kanata --check` (built kanata 1.12.1-prerelease on Linux).
+  (in-process TCP `LayerChange`, or the emitted `Ctrl+Win+F24` combo);
+  validated with `kanata --check`.
+- License note: embedding kanata pulls **LGPL-3.0-only** into the dependency
+  graph (allowed in deny.toml with a comment). Private/internal use has no
+  obligations, but DISTRIBUTING the exe requires the kanata source link plus
+  object files / relink means per LGPL §4/§6.
 - `src/bin/enable-touchpad/`: Dioxus 0.7 desktop app — tray (`tray-icon`,
   leaked handle; `TrayIcon` is `!Send`), settings page, click-through
   indicator window (`DesktopContext::new_window` + tao

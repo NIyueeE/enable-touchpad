@@ -228,7 +228,7 @@ fn signal_section(
                     checked: use_tcp.cloned(),
                     onclick: move |_| use_tcp.set(true),
                 }
-                span { "TCP 模式 — kanata 启动加参数 -p {port_text} (监听 LayerChange)" }
+                span { "TCP 模式 — 内嵌 kanata 的层广播 (127.0.0.1:{port_text},改端口需重启)" }
             }
             div {
                 style: "{row}",
@@ -238,7 +238,7 @@ fn signal_section(
                     checked: !use_tcp.cloned(),
                     onclick: move |_| use_tcp.set(false),
                 }
-                span { "F24 按键模式 — 监听 Ctrl+Win+F24 的按下/释放" }
+                span { "F24 按键模式 — 监听内嵌 kanata 输出的 Ctrl+Win+F24 按下/释放" }
             }
             div {
                 style: "{row}",

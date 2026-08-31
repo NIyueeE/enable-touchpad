@@ -2,53 +2,52 @@
 
 > English | [简体中文](README.zh.md)
 
-A proof-of-concept for the `enable-touchpad` idea on Windows:
+A proof-of-concept for the `enable-touchpad` idea on Windows, shipped as a
+**single executable**:
 
-- **kanata** owns the keyboard: holding `CapsLock` activates a `mouse` layer
-  (`Q`/`W`/`E` → mouse left/middle/right buttons, `Left Alt` → `CapsLock`)
-  and holds the inert `Ctrl+Win+F24` combo for as long as CapsLock is held.
-- **the companion app** (`src/bin/enable-touchpad`, built with Dioxus) reacts
-  to the layer signal, **enables the touchpad while CapsLock is held and
-  disables it on release**, shows a click-through indicator at the mouse
-  position, and provides a tray icon plus a minimal settings page.
+- **kanata runs embedded inside the app** (as a library, `kanata` v1.11): it
+  captures the keyboard through a low-level hook (no kernel driver needed),
+  activates a `mouse` layer while `CapsLock` is held (`Q`/`W`/`E` → mouse
+  left/middle/right buttons, `Left Alt` → `CapsLock`), and broadcasts the
+  layer state over a local TCP socket inside the same process.
+- **the Dioxus UI** reacts to the layer signal, **enables the touchpad while
+  CapsLock is held and disables it on release**, shows a click-through
+  indicator at the mouse position, and provides a tray icon plus a minimal
+  settings page.
 
 ```
-hold CapsLock ──▶ kanata layer "mouse" ──▶ signal ──▶ Dioxus app
-   (Q/W/E = mouse buttons)                 TCP LayerChange      │
-                                           or F24 press/release ├─▶ enable touchpad
-                                                                ├─▶ indicator at mouse
-release CapsLock ──▶ layer restored ────────────────────────────┴─▶ disable touchpad
+enable-touchpad.exe (single file)
+├── kanata (embedded lib, LL-hook capture + SendInput output)
+│     ├── hold CapsLock → "mouse" layer + Q/W/E = mouse buttons
+│     └── LayerChange → 127.0.0.1:<port> (in-process TCP self-connect)
+├── Dioxus UI (tray + settings page + mouse-following indicator)
+└── touchpad enable/disable (PowerShell PnP device toggle)
 ```
 
 ## Layout
 
 | Path | Purpose |
 |------|---------|
-| `kanata/enable-touchpad.kbd` | kanata layer config (validated with `kanata --check`) |
-| `../src/bin/enable-touchpad/` | the app: `main` / `app` (UI) / `config` / `signal` / `touchpad` / `tray` |
+| `kanata/enable-touchpad.kbd` | kanata layer config, embedded into the binary at compile time |
+| `../src/bin/enable-touchpad/` | the app: `main` / `app` (UI) / `config` / `kanata_embed` / `signal` / `touchpad` / `tray` |
 
 The app compiles only for Windows; other targets build a stub so the
 repository's Linux gates stay green.
 
 ## Windows setup
 
-1. **Install kanata and the Interception driver** — grab a kanata release from
-   <https://github.com/jtroo/kanata/releases>, then install the
-   [Interception driver](https://github.com/oblitum/Interception) it requires
-   on Windows and reboot.
-2. **Start kanata** (pick one signal source):
-   - TCP mode: `kanata -c enable-touchpad.kbd -p 5829`
-   - F24 mode: `kanata -c enable-touchpad.kbd`
-3. **Build and run the app as administrator** (device enable/disable is a
-   system-level operation):
-
-   ```powershell
-   cargo run --bin enable-touchpad
-   ```
-
-4. Hold `CapsLock` → the touchpad turns on, a blue pill appears next to the
+1. **Build or download** the exe (`cargo build --release` on Windows, or the
+   `test-build` CI artifact).
+2. **Run it as administrator** (device enable/disable is a system-level
+   operation). The embedded kanata config is written to
+   `%APPDATA%\enable-touchpad\kanata.kbd` on first launch.
+3. Hold `CapsLock` → the touchpad turns on, a blue pill appears next to the
    mouse cursor, and `Q`/`W`/`E` act as mouse buttons. Release → everything
    is restored and the touchpad turns off.
+
+No separate kanata installation and no kernel driver are needed — kanata's
+default Windows mode uses a low-level keyboard hook. Do **not** run an
+external kanata at the same time (double key capture and a TCP port clash).
 
 ## Settings page
 

@@ -13,6 +13,8 @@ mod app;
 #[cfg(windows)]
 mod config;
 #[cfg(windows)]
+mod kanata_embed;
+#[cfg(windows)]
 mod signal;
 #[cfg(windows)]
 mod touchpad;
@@ -28,6 +30,7 @@ use dioxus_desktop as _;
 #[cfg(windows)]
 fn main() {
     tray::install();
+    kanata_embed::start();
     signal::spawn_all();
     tray::spawn_forwarder();
     app::launch();
