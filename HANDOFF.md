@@ -104,6 +104,18 @@ something the next session needs to know.
     with a compile-time `size_of == 44` layout assert. Needs Windows 11 +
     a precision touchpad; anything else logs "SPI unavailable" once and
     the watchdog stays inert.
+  - **Chord-isolation proofs (sim, 7 tests green)**: (a) inside the mouse
+    layer the mapped layer keys emit ONLY their own actions — F24 appears
+    exactly twice per hold (press + release chord); (b) unmapped keys pass
+    straight through (`process-unmapped-keys no`) and never chord; (c)
+    OS auto-repeat is safe: kanata's Windows LL hook converts repeated
+    KEYDOWNs of a held key into `KeyValue::Repeat` (PRESSED_KEYS
+    dedup, `src/kanata/windows/llhook.rs`), and `handle_repeat` only
+    re-emits CURRENTLY-held output keys — after the macro finishes there
+    is nothing held, so 5 injected repeats produced zero events in sim.
+    NOTE: flooding sim events with no `t:` delays DOES interleave the
+    macro steps — a sim artifact, not real behaviour (real repeats arrive
+    no sooner than ~30 ms apart).
   - UI: capture buttons + per-row × (reset to none), Esc cancels, root
     `onkeydown` uses `ev.code().to_string()` (keyboard-types 0.7 has no
     `as_str`); unsupported keys show a red hint and stay in capture mode.
