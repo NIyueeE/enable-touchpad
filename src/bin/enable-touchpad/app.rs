@@ -3,11 +3,11 @@
 //! setup. Follows the system light/dark theme via `prefers-color-scheme`.
 //!
 //! The touchpad itself is toggled by the operating system: the embedded
-//! kanata taps Ctrl+Win+F24 on `CapsLock` press, and whatever the system
-//! binds that combo to performs the soft enable/disable. This app never
-//! touches devices.
+//! kanata taps Ctrl+Win+F24 on `CapsLock` press and on release, and whatever
+//! the system binds that combo to performs the soft enable/disable. This app
+//! never touches devices.
 
-use crate::config::{self, AppConfig, LALT_ACTIONS, MOUSE_ACTIONS};
+use crate::config::{self, AppConfig, KEY_CHOICES};
 use crate::kanata_embed;
 use dioxus::desktop::tao;
 use dioxus::desktop::{Config, LogicalSize, WindowBuilder, WindowCloseBehaviour, window};
@@ -41,6 +41,15 @@ transform:scale(0);transition:transform .08s;background:var(--accent);
 clip-path:polygon(14% 44%,0 65%,50% 100%,100% 16%,80% 0,43% 62%);}
 input[type=checkbox]:checked{border-color:var(--accent);}
 input[type=checkbox]:checked::before{transform:scale(1);}
+.btn-primary{background:var(--accent);color:var(--bg0);border:none;border-radius:6px;
+padding:7px 16px;cursor:pointer;font-size:13px;font-weight:600;}
+.btn-primary:hover{background:var(--accent2);}
+.btn-title{background:transparent;color:var(--dim);border:none;width:30px;height:26px;
+cursor:pointer;font-size:13px;border-radius:5px;}
+.btn-title:hover{background:var(--bg2);}
+.btn-close{background:transparent;color:var(--dim);border:none;width:30px;height:26px;
+cursor:pointer;font-size:13px;border-radius:5px;}
+.btn-close:hover{background:var(--red);color:var(--bg0);}
 "#;
 
 /// Configure logging to `%APPDATA%\enable-touchpad\enable-touchpad.log`.
@@ -98,17 +107,17 @@ pub fn handle_tray(action: crate::tray::TrayAction) {
 fn ui_root() -> Element {
     let AppConfig {
         feature_enabled: initial_feature,
-        key_q: initial_q,
-        key_w: initial_w,
-        key_e: initial_e,
-        key_lalt: initial_lalt,
+        left_click_key: initial_left,
+        middle_click_key: initial_middle,
+        right_click_key: initial_right,
+        capslock_key: initial_caps,
     } = AppConfig::load();
 
     let mut feature = use_signal(move || initial_feature);
-    let key_q = use_signal(move || initial_q);
-    let key_w = use_signal(move || initial_w);
-    let key_e = use_signal(move || initial_e);
-    let key_lalt = use_signal(move || initial_lalt);
+    let left_key = use_signal(move || initial_left);
+    let middle_key = use_signal(move || initial_middle);
+    let right_key = use_signal(move || initial_right);
+    let caps_key = use_signal(move || initial_caps);
     let mut save_state = use_signal(String::new);
 
     // Register the main window handle so the tray thread can open it.
@@ -126,12 +135,12 @@ fn ui_root() -> Element {
                 style: "flex:1;padding:4px 16px 10px 16px;display:flex;flex-direction:column;",
                 div {
                     style: "color:var(--dim);font-size:12px;margin:6px 0 10px 0;",
-                    "Mouse 层按键(CapsLock 按住时生效,松开时还原)"
+                    "为每个鼠标动作选择 mouse 层里的键盘键(CapsLock 按住时生效,松开时还原)"
                 }
-                binding_row { name: "Q", value: key_q, actions: &MOUSE_ACTIONS }
-                binding_row { name: "W", value: key_w, actions: &MOUSE_ACTIONS }
-                binding_row { name: "E", value: key_e, actions: &MOUSE_ACTIONS }
-                binding_row { name: "Left Alt", value: key_lalt, actions: &LALT_ACTIONS }
+                binding_row { name: "鼠标左键", value: left_key, actions: &KEY_CHOICES }
+                binding_row { name: "鼠标中键", value: middle_key, actions: &KEY_CHOICES }
+                binding_row { name: "鼠标右键", value: right_key, actions: &KEY_CHOICES }
+                binding_row { name: "CapsLock", value: caps_key, actions: &KEY_CHOICES }
                 div {
                     style: "display:flex;align-items:center;gap:8px;margin:8px 0 12px 0;",
                     input {
@@ -148,10 +157,10 @@ fn ui_root() -> Element {
                         onclick: move |_| {
                             let cfg = AppConfig {
                                 feature_enabled: feature.cloned(),
-                                key_q: key_q.cloned(),
-                                key_w: key_w.cloned(),
-                                key_e: key_e.cloned(),
-                                key_lalt: key_lalt.cloned(),
+                                left_click_key: left_key.cloned(),
+                                middle_click_key: middle_key.cloned(),
+                                right_click_key: right_key.cloned(),
+                                capslock_key: caps_key.cloned(),
                             };
                             match apply(&cfg) {
                                 Ok(()) => save_state.set("已保存并热应用 ✓".to_string()),
@@ -164,7 +173,7 @@ fn ui_root() -> Element {
                 }
                 div {
                     style: "margin-top:auto;color:var(--dim);font-size:11px;line-height:1.7;",
-                    "CapsLock 按下会发出 Ctrl+Win+F24(软开关由系统触摸板驱动执行)"
+                    "CapsLock 按下/松开各发出一次 Ctrl+Win+F24(软开关由系统触摸板驱动执行)"
                     br {}
                     "日志:%APPDATA%\\enable-touchpad\\enable-touchpad.log"
                 }
@@ -190,6 +199,7 @@ fn title_bar() -> Element {
             span { style: "flex:1;" }
             button {
                 class: "btn-title",
+                onmousedown: move |e| e.stop_propagation(),
                 onclick: move |_| {
                     window().set_minimized(true);
                 },
@@ -197,6 +207,7 @@ fn title_bar() -> Element {
             }
             button {
                 class: "btn-close",
+                onmousedown: move |e| e.stop_propagation(),
                 onclick: move |_| {
                     if let Some(win) = MAIN_WINDOW.get() {
                         win.set_visible(false);
@@ -215,7 +226,7 @@ fn binding_row(
     actions: &'static [(&'static str, &'static str)],
 ) -> Element {
     let row = "display:flex;align-items:center;margin-bottom:8px;gap:12px;";
-    let key_label = "width:60px;color:var(--fg);font-size:13px;";
+    let action_label = "width:80px;color:var(--fg);font-size:13px;";
     let items = actions
         .iter()
         .map(|(id, text)| (*id, *text))
@@ -224,7 +235,7 @@ fn binding_row(
     rsx! {
         div {
             style: "{row}",
-            span { style: "{key_label}", "{name}" }
+            span { style: "{action_label}", "{name}" }
             select {
                 onchange: move |e| value.set(e.value()),
                 for (id, text) in items {
