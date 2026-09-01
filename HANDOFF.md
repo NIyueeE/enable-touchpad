@@ -48,8 +48,17 @@ something the next session needs to know.
     system light/dark via `prefers-color-scheme`, native decorations AND
     menu bar removed (custom draggable title strip with minimize/hide
     buttons), scrollbar hidden, custom-styled select/checkbox.
-  - the settings page configures the layer bindings (Q/W/E → mouse buttons,
-    Left Alt → CapsLock) plus a master switch; saving regenerates the kanata
+  - the settings window is small, starts hidden, opens only from
+    the tray right-click menu (打开设置 / 退出). UI v2: Gruvbox palette,
+    system light/dark via `prefers-color-scheme`, native decorations AND
+    menu bar removed (custom draggable title strip with minimize/hide
+    buttons), scrollbar hidden, custom-styled select/checkbox. UI v3:
+    config rows are action-first ("鼠标左键 → key"), matching the user's
+    mental model; title-strip buttons stop mousedown propagation so
+    drag_window doesn't swallow their clicks.
+  - the settings page configures the layer bindings (action-first:
+    left/middle/right click and CapsLock each pick their layer key) plus
+    a master switch; saving regenerates the kanata
     config and hot-applies it via the TCP `Reload` command (protocol:
     `{"Reload":{"wait":true}}` on 127.0.0.1:5829, internal only).
   - detailed logging goes to `%APPDATA%\enable-touchpad\enable-touchpad.log`
