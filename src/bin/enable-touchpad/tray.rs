@@ -1,6 +1,9 @@
 //! System tray: right-click menu with only "open settings" and "quit".
 
 use crate::app;
+use crate::watchdog::WatchdogState;
+use etp_platform::Platform;
+use std::sync::Arc;
 use std::time::Duration;
 use tray_icon::TrayIconBuilder;
 use tray_icon::menu::{IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem};
@@ -38,13 +41,13 @@ pub fn install() {
 }
 
 /// Poll muda's global menu-event queue and dispatch selections.
-pub fn spawn_forwarder() {
-    std::thread::spawn(|| {
+pub fn spawn_forwarder(platform: &'static dyn Platform, state: Arc<WatchdogState>) {
+    std::thread::spawn(move || {
         loop {
             if let Ok(event) = MenuEvent::receiver().try_recv()
                 && let Some(action) = decode(&event.id.0)
             {
-                app::handle_tray(action);
+                app::handle_tray(action, platform, &state);
             }
             std::thread::sleep(Duration::from_millis(120));
         }

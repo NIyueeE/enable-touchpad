@@ -17,6 +17,16 @@ something the next session needs to know.
 
 ## Current state (2026-08-31)
 
+- **Layered architecture (this branch)**: the app binary is the application
+  layer (`src/bin/enable-touchpad/`: UI, tray, config store, watchdog),
+  `etp-platform/` is the **single platform-adaptation layer** (`Platform`
+  trait; `windows` adapter with the embedded kanata engine and touchpad query;
+  non-Windows fallback), and `etp-core/` is the pure cross-platform domain
+  layer (config model, key allowlist, config generator). The former
+  `etp_core.rs` / `kanata_embed.rs` / `touchpad_state.rs` binary modules were
+  dissolved into these crates. `etp-ffi/` remains a Windows-only FFI leaf
+  (now `#![cfg(windows)]`, workspace member). `cargo test` runs all workspace
+  members via `default-members`.
 - **Template finalized** at user request: release history and tags were reset,
   and a clean baseline release `v0.1.0` was re-created to validate the whole
   CI/CD flow after finalization.
@@ -166,10 +176,13 @@ something the next session needs to know.
   tao's `set_ignore_cursor_events`; rdev has no `Key::F24` (match
   `Key::Unknown(0x87)`); muda `MenuItem::with_id` takes
   `Option<Accelerator>`.
-- Windows-only code lives under `cfg(windows)` + `[target.'cfg(windows)'.dependencies]`
-  so Linux gates stay green; verification on Linux = `cargo check/clippy
-  --target x86_64-pc-windows-msvc` (compiles, not run). Real-device testing
-  still pending on a Windows machine.
+- Windows-only code now lives in `etp-platform/src/windows/` and in the
+  root package's `[target.'cfg(windows)'.dependencies]` (dioxus, tray-icon,
+  log, simplelog); Linux gates stay green. Verification on Linux:
+  `cargo clippy --all-targets --all-features -- -D warnings` (host) plus
+  `cargo clippy --target x86_64-pc-windows-msvc --all-targets --all-features
+  -- -D warnings` (cross compile). Real-device testing still pending on a
+  Windows machine.
 
 ## Decision log (why things are the way they are)
 

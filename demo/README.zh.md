@@ -23,8 +23,10 @@
 
 | 路径 | 用途 |
 |------|------|
-| `../src/bin/enable-touchpad/` | 应用代码:`main` / `app`(UI + 日志)/ `etp_core`(配置模型、键位白名单、配置生成器)/ `kanata_embed`(内嵌 kanata、层监控、控制通道)/ `touchpad_state`(状态看门狗)/ `tray` |
-| `../etp-ffi/` | 微型 FFI crate:触摸板状态查询 `SPI_GETTOUCHPADPARAMETERS`(隔离 `unsafe`;应用 crate 禁用 unsafe) |
+| `../src/bin/enable-touchpad/` | 应用层:`main`(组合根)/ `app`(Dioxus UI)/ `config_store` / `logging` / `watchdog` / `tray` —— 全部基于 `Platform` trait 编写 |
+| `../etp-core/` | 领域层:配置模型、键位白名单、kanata 配置生成器(跨平台,Linux 上单测)|
+| `../etp-platform/` | 唯一的多平台适配层:`Platform` trait + `windows` 适配器(内嵌 kanata 引擎、层监控、触摸板状态)+ 非 Windows 兜底 |
+| `../etp-ffi/` | 仅 Windows 的 FFI 叶子 crate:触摸板状态查询 `SPI_GETTOUCHPADPARAMETERS`(隔离 `unsafe`;应用 crate 禁用 unsafe)|
 
 应用只在 Windows 下编译;其他目标编译为占位桩,保证仓库的 Linux 门禁不受影响。
 

@@ -31,8 +31,10 @@ A proof-of-concept for the `enable-touchpad` idea on Windows, shipped as a
 
 | Path | Purpose |
 |------|---------|
-| `../src/bin/enable-touchpad/` | the app: `main` / `app` (UI + logging) / `etp_core` (config model, key allowlist, kanata config generator) / `kanata_embed` (embedded kanata, layer monitor, control channel) / `touchpad_state` (state watchdog) / `tray` |
-| `../etp-ffi/` | tiny FFI crate: `SPI_GETTOUCHPADPARAMETERS` touchpad state query (isolates `unsafe`; the app crate forbids it) |
+| `../src/bin/enable-touchpad/` | application layer: `main` (composition root) / `app` (Dioxus UI) / `config_store` / `logging` / `watchdog` / `tray` — written against the `Platform` trait |
+| `../etp-core/` | domain layer: config model, key allowlist, kanata config generator (cross-platform, unit-tested on Linux) |
+| `../etp-platform/` | the single platform-adaptation layer: `Platform` trait + `windows` adapter (embedded kanata engine, layer monitor, touchpad state) + non-Windows fallback |
+| `../etp-ffi/` | Windows-only FFI leaf crate: `SPI_GETTOUCHPADPARAMETERS` touchpad state query (isolates `unsafe`; the app crate forbids it) |
 
 The app compiles only for Windows; other targets build a stub so the
 repository's Linux gates stay green.

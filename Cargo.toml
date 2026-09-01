@@ -6,9 +6,14 @@ description = "An agent-facing Rust project template with strict lints, layered 
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/NIyueeE/rust-agents-template"
 
+[workspace]
+members = [".", "etp-core", "etp-platform", "etp-ffi"]
+default-members = [".", "etp-core", "etp-platform", "etp-ffi"]
+resolver = "3"
+
 [dependencies]
-serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
+etp-core = { version = "0.1.0", path = "etp-core" }
+etp-platform = { version = "0.1.0", path = "etp-platform" }
 
 [lints.rust]
 unsafe_code = "forbid"
@@ -24,8 +29,6 @@ todo = "warn"
 
 [target."cfg(windows)".dependencies]
 dioxus = { version = "0.7.10", features = ["desktop"] }
-etp-ffi = { version = "0.1.0", path = "etp-ffi" }
-kanata = { version = "1.11.0", default-features = false, features = ["tcp_server", "win_sendinput_send_scancodes"] }
 log = "0.4.34"
 simplelog = "0.12.2"
 tray-icon = "0.24.2"

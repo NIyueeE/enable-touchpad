@@ -33,10 +33,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Config logic (config model, key allowlist, kanata config generator) moved
-  into the cross-platform `etp_core` module so its unit tests run on every
-  host; serde/serde_json became unconditional dependencies; the settings
-  window grew to 440×400 to fit the capture hints and footer.
+- Layered architecture for multi-platform porting: `etp-core` (pure
+  cross-platform domain logic, unit-tested on every host), `etp-platform`
+  (the single platform-adaptation layer: `Platform` trait + Windows adapter
+  and non-Windows fallback), and the application binary (UI, tray, watchdog)
+  programmed against the platform trait. The former `etp_core` /
+  `kanata_embed` / `touchpad_state` binary modules were dissolved into these
+  crates. The settings window grew to 440×400 to fit the capture hints and
+  footer.
 
 ## [0.1.0] - 2026-08-31
 

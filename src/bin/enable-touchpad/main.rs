@@ -1,32 +1,35 @@
 //! enable-touchpad — Windows feasibility demo (single exe).
 //!
-//! One binary that embeds kanata as a library: holding `CapsLock` activates
-//! the `mouse` layer and taps Ctrl+Win+F24, which the operating system /
-//! touchpad driver maps to the soft touchpad enable/disable. The app provides
-//! a tray icon, a small settings window for the layer key bindings, and file
-//! logging. Non-Windows targets build a stub so the repository's host-side
-//! gates keep passing unchanged.
+//! Composition root: wires the platform adapter, input engine, touchpad
+//! watchdog, tray, and settings UI together. The architecture is layered:
+//!
+//! 1. `etp-core` — pure domain logic (config model, key allowlist, kanata
+//!    config generator), unit-tested on every host;
+//! 2. `etp-platform` — the single platform-adaptation layer (OS paths,
+//!    embedded input engine, touchpad state query). Future OS backends are
+//!    added behind `#[cfg(...)]` in that crate;
+//! 3. this binary — application layer (tray + Dioxus settings UI +
+//!    watchdog), written against `etp_platform::Platform`.
+//!
+//! Non-Windows targets build a stub so the repository's host-side gates keep
+//! passing unchanged.
 
 // GUI subsystem: no console window pops up when the exe is double-clicked.
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
-// Pure cross-platform logic (config model, key allowlist, config generator):
-// unit-tested on every host. On non-Windows the binary is a stub, so the
-// module legitimately has no consumer there.
-#[cfg_attr(not(windows), allow(dead_code))]
-mod etp_core;
-
-#[cfg(windows)]
-use std::sync::OnceLock;
-
 #[cfg(windows)]
 mod app;
 #[cfg(windows)]
-mod kanata_embed;
+mod config_store;
 #[cfg(windows)]
-mod touchpad_state;
+mod logging;
 #[cfg(windows)]
 mod tray;
+#[cfg(windows)]
+mod watchdog;
+
+#[cfg(windows)]
+use std::sync::{Arc, OnceLock};
 
 /// Sentinel port held open for the process lifetime: if another instance
 /// already bound it, this one exits instead of double-capturing keys.
@@ -49,13 +52,25 @@ fn main() {
     if !acquire_single_instance_lock() {
         std::process::exit(1);
     }
-    app::init_logging();
+
+    let platform = etp_platform::current();
+    logging::init(platform);
     log::info!("single-instance lock acquired");
+
+    let watchdog = Arc::new(watchdog::WatchdogState::new(platform));
+    let cfg = config_store::load(platform);
+    watchdog.set_managed(cfg.feature_enabled);
+
+    let (layer_tx, layer_rx) = std::sync::mpsc::sync_channel(8);
+    if let Err(e) = platform.start_engine(&cfg, layer_tx) {
+        log::error!("input engine failed to start: {e}");
+    } else {
+        watchdog::spawn(Arc::clone(&watchdog), layer_rx);
+    }
+
     tray::install();
-    kanata_embed::start();
-    touchpad_state::spawn_watchdog();
-    tray::spawn_forwarder();
-    app::launch();
+    tray::spawn_forwarder(platform, Arc::clone(&watchdog));
+    app::launch(platform, Arc::clone(&watchdog));
 }
 
 #[cfg(not(windows))]

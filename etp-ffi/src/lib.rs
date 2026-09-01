@@ -1,4 +1,5 @@
 //! Minimal Win32 FFI surface for reading the precision-touchpad enable state.
+#![cfg(windows)]
 //!
 //! This lives in its own tiny crate because the main application crate sets
 //! the crate-level lint `unsafe_code = "forbid"`, which cannot be relaxed

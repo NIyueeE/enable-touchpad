@@ -1,23 +1,37 @@
 //! Dioxus UI: a small Gruvbox-styled settings window (hidden by default,
-//! opened from the tray) for the mouse-layer key bindings, plus file logging
-//! setup. Follows the system light/dark theme via `prefers-color-scheme`.
+//! opened from the tray) for the mouse-layer key bindings. Follows the
+//! system light/dark theme via `prefers-color-scheme`.
 //!
 //! Bindings are captured, not chosen from a list: click a row's button, press
 //! any supported key, and the physical key becomes that action inside the
 //! `mouse` layer. The touchpad itself is toggled by the operating system: the
 //! embedded kanata taps Ctrl+Win+F24 on layer-key press and on release, the
-//! watchdog in [`crate::touchpad_state`] corrects any state drift. This app
-//! never touches devices.
+//! watchdog in [`crate::watchdog`] corrects any state drift. This app never
+//! touches devices.
 
-use crate::etp_core::{AppConfig, CANCEL_KEY, HOLD_KEY, KEY_NONE, is_bindable, key_label};
-use crate::kanata_embed;
+use crate::config_store;
+use crate::watchdog::WatchdogState;
 use dioxus::desktop::tao;
 use dioxus::desktop::{Config, LogicalSize, WindowBuilder, WindowCloseBehaviour, window};
 use dioxus::prelude::*;
+use etp_core::{AppConfig, CANCEL_KEY, HOLD_KEY, KEY_NONE, is_bindable, key_label};
+use etp_platform::Platform;
 use std::sync::{Arc, OnceLock};
 
 /// Main window handle; tao windows are `Send`, so the tray thread can use it.
 static MAIN_WINDOW: OnceLock<Arc<tao::window::Window>> = OnceLock::new();
+
+/// Process-wide platform adapter, installed by [`launch`] before the Dioxus
+/// root runs (Dioxus `launch` accepts a `fn() -> Element`, so the UI root
+/// cannot capture arguments).
+static PLATFORM: OnceLock<PlatformRef> = OnceLock::new();
+
+/// Process-wide watchdog state, installed by [`launch`] for the same reason.
+static WATCHDOG: OnceLock<Arc<WatchdogState>> = OnceLock::new();
+
+/// Newtype so `OnceLock` can hold an unsized trait-object reference.
+#[derive(Clone, Copy)]
+struct PlatformRef(&'static dyn Platform);
 
 /// Slot index of the 鼠标左键 row.
 const SLOT_LEFT: i8 = 0;
@@ -64,31 +78,11 @@ cursor:pointer;font-size:13px;border-radius:5px;}
 .btn-close:hover{background:var(--red);color:var(--bg0);}
 "#;
 
-/// Configure logging to `%APPDATA%\enable-touchpad\enable-touchpad.log`.
-/// Kanata logs through the `log` crate too, so its output lands in the same
-/// file.
-pub fn init_logging() {
-    let Ok(dir) = crate::etp_core::app_dir() else {
-        return;
-    };
-    let Ok(file) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(dir.join("enable-touchpad.log"))
-    else {
-        return;
-    };
-    let _ = simplelog::WriteLogger::init(
-        simplelog::LevelFilter::Info,
-        simplelog::Config::default(),
-        file,
-    );
-    log::info!("app starting");
-}
-
 /// Configure and launch the desktop app. The window starts hidden and is
 /// opened from the tray menu.
-pub fn launch() {
+pub fn launch(platform: &'static dyn Platform, state: Arc<WatchdogState>) {
+    let _ = PLATFORM.set(PlatformRef(platform));
+    let _ = WATCHDOG.set(state);
     let config = Config::new()
         .with_window(
             WindowBuilder::new()
@@ -104,7 +98,11 @@ pub fn launch() {
 }
 
 /// A tray menu entry was selected (runs on the tray forwarder thread).
-pub fn handle_tray(action: crate::tray::TrayAction) {
+pub fn handle_tray(
+    action: crate::tray::TrayAction,
+    platform: &'static dyn Platform,
+    state: &Arc<WatchdogState>,
+) {
     match action {
         crate::tray::TrayAction::OpenSettings => {
             if let Some(win) = MAIN_WINDOW.get() {
@@ -115,12 +113,28 @@ pub fn handle_tray(action: crate::tray::TrayAction) {
         crate::tray::TrayAction::Quit => {
             // Best effort: leaving while the layer key is held would strand
             // the touchpad in the enabled state — tap once more.
-            if crate::touchpad_state::expected_on() {
-                let _ = kanata_embed::tap_release_fakekey();
+            if state.expected_on() {
+                let _ = platform.tap_toggle_chord();
                 std::thread::sleep(std::time::Duration::from_millis(50));
             }
             std::process::exit(0);
         }
+    }
+}
+
+/// Returns the process-wide platform adapter installed by [`launch`].
+fn platform() -> &'static dyn Platform {
+    match PLATFORM.get() {
+        Some(platform_ref) => platform_ref.0,
+        None => panic!("platform adapter not initialised"),
+    }
+}
+
+/// Returns a clone of the process-wide watchdog state installed by [`launch`].
+fn watchdog() -> Arc<WatchdogState> {
+    match WATCHDOG.get() {
+        Some(state) => Arc::clone(state),
+        None => panic!("watchdog state not initialised"),
     }
 }
 
@@ -131,16 +145,16 @@ fn ui_root() -> Element {
         middle_click_key: initial_middle,
         right_click_key: initial_right,
         capslock_key: initial_caps,
-    } = AppConfig::load();
+    } = config_store::load(platform());
 
-    let mut feature = use_signal(move || initial_feature);
-    let mut left_key = use_signal(move || initial_left);
-    let mut middle_key = use_signal(move || initial_middle);
-    let mut right_key = use_signal(move || initial_right);
-    let mut caps_key = use_signal(move || initial_caps);
-    let mut save_state = use_signal(String::new);
-    let mut capture_hint = use_signal(String::new);
-    let mut capturing = use_signal(|| -1_i8);
+    let feature = use_signal(move || initial_feature);
+    let left_key = use_signal(move || initial_left);
+    let middle_key = use_signal(move || initial_middle);
+    let right_key = use_signal(move || initial_right);
+    let caps_key = use_signal(move || initial_caps);
+    let save_state = use_signal(String::new);
+    let capture_hint = use_signal(String::new);
+    let capturing = use_signal(|| -1_i8);
 
     // Register the main window handle so the tray thread can open it.
     use_future(|| async move {
@@ -150,6 +164,35 @@ fn ui_root() -> Element {
 
     rsx! {
         style { "{GRUVBOX_CSS}" }
+        settings_form {
+            feature,
+            left_key,
+            middle_key,
+            right_key,
+            caps_key,
+            save_state,
+            capture_hint,
+            capturing,
+        }
+    }
+}
+
+/// The settings page body: capture rows, master switch, save button, footer.
+#[component]
+fn settings_form(
+    mut feature: Signal<bool>,
+    mut left_key: Signal<String>,
+    mut middle_key: Signal<String>,
+    mut right_key: Signal<String>,
+    mut caps_key: Signal<String>,
+    mut save_state: Signal<String>,
+    mut capture_hint: Signal<String>,
+    mut capturing: Signal<i8>,
+) -> Element {
+    let platform = platform();
+    let state = watchdog();
+
+    rsx! {
         div {
             style: "background:var(--bg0);color:var(--fg);height:100vh;display:flex;flex-direction:column;",
             onmousedown: move |_| {
@@ -214,7 +257,7 @@ fn ui_root() -> Element {
                                 right_click_key: right_key.cloned(),
                                 capslock_key: caps_key.cloned(),
                             };
-                            match apply(&cfg) {
+                            match apply(platform, &state, &cfg) {
                                 Ok(()) => save_state.set("已保存并热应用 ✓".to_string()),
                                 Err(e) => save_state.set(format!("失败: {e}")),
                             }
@@ -347,10 +390,16 @@ fn binding_row(
     }
 }
 
-fn apply(cfg: &AppConfig) -> Result<(), String> {
-    cfg.save()?;
-    kanata_embed::apply_config(cfg)?;
-    crate::touchpad_state::set_managed(cfg.feature_enabled);
+fn apply(
+    platform: &'static dyn Platform,
+    state: &Arc<WatchdogState>,
+    cfg: &AppConfig,
+) -> Result<(), String> {
+    config_store::save(platform, cfg)?;
+    platform
+        .apply_engine_config(cfg)
+        .map_err(|e| e.to_string())?;
+    state.set_managed(cfg.feature_enabled);
     log::info!("settings saved and applied: {cfg:?}");
     Ok(())
 }
