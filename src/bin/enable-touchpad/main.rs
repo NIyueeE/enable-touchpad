@@ -10,15 +10,21 @@
 // GUI subsystem: no console window pops up when the exe is double-clicked.
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
+// Pure cross-platform logic (config model, key allowlist, config generator):
+// unit-tested on every host. On non-Windows the binary is a stub, so the
+// module legitimately has no consumer there.
+#[cfg_attr(not(windows), allow(dead_code))]
+mod etp_core;
+
 #[cfg(windows)]
 use std::sync::OnceLock;
 
 #[cfg(windows)]
 mod app;
 #[cfg(windows)]
-mod config;
-#[cfg(windows)]
 mod kanata_embed;
+#[cfg(windows)]
+mod touchpad_state;
 #[cfg(windows)]
 mod tray;
 
@@ -47,6 +53,7 @@ fn main() {
     log::info!("single-instance lock acquired");
     tray::install();
     kanata_embed::start();
+    touchpad_state::spawn_watchdog();
     tray::spawn_forwarder();
     app::launch();
 }

@@ -5,8 +5,9 @@
 | Path | Purpose |
 |------|---------|
 | `src/main.rs` | binary entry point |
-| `src/bin/enable-touchpad/` | Windows demo binary: tray + settings UI + touchpad toggle (stub on other targets) |
-| `demo/` | Windows feasibility demo assets: kanata layer config, bilingual README |
+| `src/bin/enable-touchpad/` | Windows demo binary: tray + settings UI + embedded kanata + touchpad state watchdog (stub on other targets) |
+| `etp-ffi/` | minimal FFI crate for the precision-touchpad state query (isolates `unsafe`) |
+| `demo/` | Windows feasibility demo notes: bilingual README |
 | `tests/cli.rs` | smoke test for the binary |
 | `Cargo.toml` | manifest: strict `[lints]`, package metadata |
 | `Cargo.lock` | committed (binary template convention) |

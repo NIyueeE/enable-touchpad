@@ -48,14 +48,6 @@ something the next session needs to know.
     system light/dark via `prefers-color-scheme`, native decorations AND
     menu bar removed (custom draggable title strip with minimize/hide
     buttons), scrollbar hidden, custom-styled select/checkbox.
-  - the settings window is small, starts hidden, opens only from
-    the tray right-click menu (打开设置 / 退出). UI v2: Gruvbox palette,
-    system light/dark via `prefers-color-scheme`, native decorations AND
-    menu bar removed (custom draggable title strip with minimize/hide
-    buttons), scrollbar hidden, custom-styled select/checkbox. UI v3:
-    config rows are action-first ("鼠标左键 → key"), matching the user's
-    mental model; title-strip buttons stop mousedown propagation so
-    drag_window doesn't swallow their clicks.
   - the settings page configures the layer bindings (action-first:
     left/middle/right click and CapsLock each pick their layer key) plus
     a master switch; saving regenerates the kanata
@@ -68,6 +60,57 @@ something the next session needs to know.
     generated from code (single source of truth) and syntax-validated with
     `kanata --check` (switch-case form: `((input real caps)) <action> break`,
     three sibling forms per case).
+- **v6 toggle semantics (sim-verified; CONFIRMED WORKING on the user's
+  device)**: the CapsLock hold key taps the real Ctrl+Win+F24 **chord**
+  (`(macro C-M-f24)` = all three keys down, reverse-order release) on
+  press, and a second tap on release via `(deffakekeys release-tap (macro
+  C-M-f24))` + `(on-release-fakekey release-tap tap)`. The earlier
+  sequential `(macro lctl lmeta f24)` emitted a lone Win tap and popped the
+  Start menu on the device. Sim wave (v7 tests live in the kanata clone at
+  `src/tests/sim_tests/etp_sim_tests.rs`, not in this repo):
+  `↓LCtrl ↓LGui ↓F24 ↑F24 ↑LGui ↑LCtrl` at press and at release.
+- **v7 key capture + state watchdog (current)**:
+  - Bindings are **captured, not chosen from a list**: click a row's
+    button, press any key. `AppConfig` stores W3C `KeyboardEvent.code`
+    strings (`"KeyF"`, `"AltLeft"`) — kanata's parser accepts these
+    verbatim (`str_to_oscode`), and legacy short names (`q`, `lalt`) stay
+    valid, so old config files keep loading. The allowlist
+    (`etp_core::SUPPORTED_CODES`, ~100 codes) was cross-checked against
+    kanata v1.11.0's name table and Windows scancode conversion, and a
+    config containing EVERY allowlisted key passed `kanata --check`.
+    Reserved and rejected: `Escape` (capture cancel), `CapsLock` (fixed
+    defsrc hold key), `PrintScreen`/media keys (no kanata name / name
+    mismatch with web codes).
+  - Generator de-duplicates layer keys (first claim wins) and skips the
+    hold-key collision; pure logic lives in the cross-platform
+    `etp_core.rs` (replaces `config.rs`) so unit tests run on Linux.
+  - **State watchdog** (`touchpad_state.rs`): kanata broadcasts
+    `LayerChange` to EVERY connected TCP client (no subscription needed),
+    so a persistent monitor connection feeds expected state to the
+    watchdog (mouse layer = touchpad ON, base = OFF). While idle it reads
+    the official state via `SPI_GETTOUCHPADPARAMETERS` (0x00AE,
+    `TOUCHPAD_PARAMETERS_V1`: 44 bytes, `touchpadEnabled` = bit 3 of the
+    first C bit-field word — from `WinUser.h`; the constant AND struct are
+    missing from windows-rs metadata) and corrects drift to OFF by firing
+    `{"ActOnFakeKey":{"name":"release-tap","action":"Tap"}}` — the same
+    soft chord, no device touching (the success path writes no response).
+    1.2 s cadence, 1.5 s cooldown after any chord tap (a flip lags), 3
+    failed corrections → 60 s backoff. Master switch off = unmanaged
+    (stock behaviour preserved). Tray quit sends one best-effort tap if
+    the layer was held, so the touchpad is not stranded ON.
+  - `etp-ffi/` is a tiny path-dependency crate wrapping the two `unsafe`
+    FFI calls: the main crate's `unsafe_code = "forbid"` cannot be relaxed
+    locally (rustc E0453), so the FFI boundary moved into its own crate
+    with a compile-time `size_of == 44` layout assert. Needs Windows 11 +
+    a precision touchpad; anything else logs "SPI unavailable" once and
+    the watchdog stays inert.
+  - UI: capture buttons + per-row × (reset to none), Esc cancels, root
+    `onkeydown` uses `ev.code().to_string()` (keyboard-types 0.7 has no
+    `as_str`); unsupported keys show a red hint and stay in capture mode.
+    Window grew to 440×400 — 360/384 clipped the footer line (verified in
+    headless chromium renders of dark/light/capture states).
+  - serde/serde_json moved to unconditional dependencies (the config
+    model is cross-platform now).
 - **v5 layer fix (verified with kanata's own simulation harness)**: the v4
   config put `layer-while-held` inside a `switch` case — kanata's sim
   (`simulated_output` feature, `simulate()` in `src/tests/sim_tests/mod.rs`

@@ -19,6 +19,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hot-apply over kanata's TCP `Reload` command; detailed logs go to
   `%APPDATA%\enable-touchpad\enable-touchpad.log`. Compiles for
   `cfg(windows)` only (other targets build a stub).
+- Layer key bindings are **captured from the keyboard** instead of a fixed
+  dropdown: click a row, press any supported key (W3C `KeyboardEvent.code`
+  names pass straight into the generated kanata config; `Escape` cancels,
+  `CapsLock` remains the fixed layer hold key, duplicates collapse to the
+  first claim).
+- Touchpad **state watchdog**: while the layer key is not held, the
+  official precision-touchpad state (`SPI_GETTOUCHPADPARAMETERS`, Win11+,
+  wrapped in the new `etp-ffi` FFI crate) is sampled every ~1.2 s and any
+  drift back to "enabled" is corrected with the same soft Ctrl+Win+F24
+  chord via kanata's fake-key channel — devices are never touched. With
+  the master switch off, the touchpad is left to the system.
+
+### Changed
+
+- Config logic (config model, key allowlist, kanata config generator) moved
+  into the cross-platform `etp_core` module so its unit tests run on every
+  host; serde/serde_json became unconditional dependencies; the settings
+  window grew to 440×400 to fit the capture hints and footer.
 
 ## [0.1.0] - 2026-08-31
 

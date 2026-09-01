@@ -2,12 +2,14 @@
 //! opened from the tray) for the mouse-layer key bindings, plus file logging
 //! setup. Follows the system light/dark theme via `prefers-color-scheme`.
 //!
-//! The touchpad itself is toggled by the operating system: the embedded
-//! kanata taps Ctrl+Win+F24 on `CapsLock` press and on release, and whatever
-//! the system binds that combo to performs the soft enable/disable. This app
+//! Bindings are captured, not chosen from a list: click a row's button, press
+//! any supported key, and the physical key becomes that action inside the
+//! `mouse` layer. The touchpad itself is toggled by the operating system: the
+//! embedded kanata taps Ctrl+Win+F24 on layer-key press and on release, the
+//! watchdog in [`crate::touchpad_state`] corrects any state drift. This app
 //! never touches devices.
 
-use crate::config::{self, AppConfig, KEY_CHOICES};
+use crate::etp_core::{AppConfig, CANCEL_KEY, HOLD_KEY, KEY_NONE, is_bindable, key_label};
 use crate::kanata_embed;
 use dioxus::desktop::tao;
 use dioxus::desktop::{Config, LogicalSize, WindowBuilder, WindowCloseBehaviour, window};
@@ -17,22 +19,32 @@ use std::sync::{Arc, OnceLock};
 /// Main window handle; tao windows are `Send`, so the tray thread can use it.
 static MAIN_WINDOW: OnceLock<Arc<tao::window::Window>> = OnceLock::new();
 
+/// Slot index of the 鼠标左键 row.
+const SLOT_LEFT: i8 = 0;
+/// Slot index of the 鼠标中键 row.
+const SLOT_MIDDLE: i8 = 1;
+/// Slot index of the 鼠标右键 row.
+const SLOT_RIGHT: i8 = 2;
+/// Slot index of the `CapsLock` action row.
+const SLOT_CAPS: i8 = 3;
+
 /// Gruvbox palette for both themes; the webview follows the system setting.
 const GRUVBOX_CSS: &str = r#"
 :root{--bg0:#282828;--bg1:#3c3836;--bg2:#504945;--fg:#ebdbb2;--dim:#a89984;
---line:#504945;--accent:#83a598;--accent2:#8ec07c;--red:#fb4934;
---chev:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M1 1l4 4 4-4' stroke='%23a89984' stroke-width='1.5' fill='none'/></svg>");}
+--line:#504945;--accent:#83a598;--accent2:#8ec07c;--red:#fb4934;}
 @media (prefers-color-scheme: light){:root{--bg0:#fbf1c7;--bg1:#ebdbb2;--bg2:#d5c4a1;--fg:#3c3836;--dim:#7c6f64;
---line:#d5c4a1;--accent:#076678;--accent2:#427b58;--red:#9d0006;
---chev:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M1 1l4 4 4-4' stroke='%237c6f64' stroke-width='1.5' fill='none'/></svg>");}}
+--line:#d5c4a1;--accent:#076678;--accent2:#427b58;--red:#9d0006;}}
 html,body{margin:0;overflow:hidden;background:var(--bg0);}
 *{box-sizing:border-box;user-select:none;cursor:default;
 font-family:'Segoe UI','Microsoft YaHei',system-ui,sans-serif;}
-select{appearance:none;-webkit-appearance:none;color:var(--fg);
-background:var(--bg1) var(--chev) no-repeat right 8px center;
-border:1px solid var(--line);border-radius:6px;padding:5px 26px 5px 10px;
+.key-btn{background:var(--bg1);color:var(--fg);border:1px solid var(--line);
+border-radius:6px;padding:5px 12px;min-width:132px;text-align:left;
 font-size:13px;cursor:pointer;}
-select:hover{border-color:var(--accent);}
+.key-btn:hover{border-color:var(--accent);}
+.key-btn.capturing{border-color:var(--accent);background:var(--bg2);color:var(--accent);}
+.btn-clear{background:transparent;color:var(--dim);border:1px solid transparent;
+border-radius:5px;width:24px;height:26px;cursor:pointer;font-size:13px;}
+.btn-clear:hover{color:var(--red);border-color:var(--line);}
 input[type=checkbox]{appearance:none;-webkit-appearance:none;width:15px;height:15px;
 border:1px solid var(--line);border-radius:4px;background:var(--bg1);
 display:inline-grid;place-content:center;cursor:pointer;margin:0;}
@@ -56,7 +68,7 @@ cursor:pointer;font-size:13px;border-radius:5px;}
 /// Kanata logs through the `log` crate too, so its output lands in the same
 /// file.
 pub fn init_logging() {
-    let Ok(dir) = config::app_dir() else {
+    let Ok(dir) = crate::etp_core::app_dir() else {
         return;
     };
     let Ok(file) = std::fs::OpenOptions::new()
@@ -83,7 +95,7 @@ pub fn launch() {
                 .with_title("enable-touchpad")
                 .with_visible(false)
                 .with_decorations(false)
-                .with_inner_size(LogicalSize::new(440.0, 330.0)),
+                .with_inner_size(LogicalSize::new(440.0, 400.0)),
         )
         .with_close_behaviour(WindowCloseBehaviour::WindowHides);
     dioxus::LaunchBuilder::desktop()
@@ -100,7 +112,15 @@ pub fn handle_tray(action: crate::tray::TrayAction) {
                 win.set_focus();
             }
         }
-        crate::tray::TrayAction::Quit => std::process::exit(0),
+        crate::tray::TrayAction::Quit => {
+            // Best effort: leaving while the layer key is held would strand
+            // the touchpad in the enabled state — tap once more.
+            if crate::touchpad_state::expected_on() {
+                let _ = kanata_embed::tap_release_fakekey();
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            std::process::exit(0);
+        }
     }
 }
 
@@ -114,11 +134,13 @@ fn ui_root() -> Element {
     } = AppConfig::load();
 
     let mut feature = use_signal(move || initial_feature);
-    let left_key = use_signal(move || initial_left);
-    let middle_key = use_signal(move || initial_middle);
-    let right_key = use_signal(move || initial_right);
-    let caps_key = use_signal(move || initial_caps);
+    let mut left_key = use_signal(move || initial_left);
+    let mut middle_key = use_signal(move || initial_middle);
+    let mut right_key = use_signal(move || initial_right);
+    let mut caps_key = use_signal(move || initial_caps);
     let mut save_state = use_signal(String::new);
+    let mut capture_hint = use_signal(String::new);
+    let mut capturing = use_signal(|| -1_i8);
 
     // Register the main window handle so the tray thread can open it.
     use_future(|| async move {
@@ -130,19 +152,49 @@ fn ui_root() -> Element {
         style { "{GRUVBOX_CSS}" }
         div {
             style: "background:var(--bg0);color:var(--fg);height:100vh;display:flex;flex-direction:column;",
+            onmousedown: move |_| {
+                // Clicking anywhere outside a capture button stops the capture.
+                if capturing.cloned() >= 0 {
+                    capturing.set(-1);
+                    capture_hint.set(String::new());
+                }
+            },
+            onkeydown: move |ev| {
+                if capturing.cloned() < 0 {
+                    return;
+                }
+                ev.prevent_default();
+                ev.stop_propagation();
+                let code = ev.code().to_string();
+                if code == CANCEL_KEY {
+                    capturing.set(-1);
+                    capture_hint.set(String::new());
+                    return;
+                }
+                if !is_bindable(&code) {
+                    capture_hint.set(format!("按键 {code} 不受支持,换一个吧(Esc 取消)"));
+                    return;
+                }
+                match capturing.cloned() {
+                    SLOT_LEFT => left_key.set(code),
+                    SLOT_MIDDLE => middle_key.set(code),
+                    SLOT_RIGHT => right_key.set(code),
+                    _ => caps_key.set(code),
+                }
+                capturing.set(-1);
+                capture_hint.set(String::new());
+            },
             title_bar {}
             div {
                 style: "flex:1;padding:4px 16px 10px 16px;display:flex;flex-direction:column;",
+                capture_instructions {}
+                binding_row { name: "鼠标左键", value: left_key, capturing, slot: SLOT_LEFT }
+                binding_row { name: "鼠标中键", value: middle_key, capturing, slot: SLOT_MIDDLE }
+                binding_row { name: "鼠标右键", value: right_key, capturing, slot: SLOT_RIGHT }
+                binding_row { name: "CapsLock", value: caps_key, capturing, slot: SLOT_CAPS }
+                capture_status { hint: capture_hint }
                 div {
-                    style: "color:var(--dim);font-size:12px;margin:6px 0 10px 0;",
-                    "为每个鼠标动作选择 mouse 层里的键盘键(CapsLock 按住时生效,松开时还原)"
-                }
-                binding_row { name: "鼠标左键", value: left_key, actions: &KEY_CHOICES }
-                binding_row { name: "鼠标中键", value: middle_key, actions: &KEY_CHOICES }
-                binding_row { name: "鼠标右键", value: right_key, actions: &KEY_CHOICES }
-                binding_row { name: "CapsLock", value: caps_key, actions: &KEY_CHOICES }
-                div {
-                    style: "display:flex;align-items:center;gap:8px;margin:8px 0 12px 0;",
+                    style: "display:flex;align-items:center;gap:8px;margin:0 0 12px 0;",
                     input {
                         r#type: "checkbox",
                         checked: feature.cloned(),
@@ -172,12 +224,47 @@ fn ui_root() -> Element {
                     span { style: "color:var(--dim);font-size:12px;", "{save_state}" }
                 }
                 div {
-                    style: "margin-top:auto;color:var(--dim);font-size:11px;line-height:1.7;",
-                    "CapsLock 按下/松开各发出一次 Ctrl+Win+F24(软开关由系统触摸板驱动执行)"
-                    br {}
-                    "日志:%APPDATA%\\enable-touchpad\\enable-touchpad.log"
+                    style: "margin-top:auto;",
+                    footer_notes {}
                 }
             }
+        }
+    }
+}
+
+/// How key capture works, rendered above the rows.
+#[component]
+fn capture_instructions() -> Element {
+    rsx! {
+        div {
+            style: "color:var(--dim);font-size:12px;margin:6px 0 10px 0;line-height:1.5;",
+            "点击按钮后按下任意键即可绑定 · Esc 取消 · × 恢复为无 · {HOLD_KEY} 是固定的层触发键"
+        }
+    }
+}
+
+/// Red status line under the rows (unsupported key notices live here).
+#[component]
+fn capture_status(hint: Signal<String>) -> Element {
+    rsx! {
+        div {
+            style: "height:16px;color:var(--red);font-size:11px;margin:0 0 4px 0;",
+            "{hint}"
+        }
+    }
+}
+
+/// Static footer: how the toggle works, watchdog note, log location.
+#[component]
+fn footer_notes() -> Element {
+    rsx! {
+        div {
+            style: "color:var(--dim);font-size:11px;line-height:1.7;",
+            "CapsLock 按下/松开各发出一次 Ctrl+Win+F24(软开关由系统触摸板驱动执行)"
+            br {}
+            "状态矫正:未按住 CapsLock 时自动检测触摸板状态并软关闭(需 Win11 精确式触摸板)"
+            br {}
+            "日志:%APPDATA%\\enable-touchpad\\enable-touchpad.log"
         }
     }
 }
@@ -219,28 +306,42 @@ fn title_bar() -> Element {
     }
 }
 
+/// One action row: a capture button (click, then press the desired key) and a
+/// clear button that resets the action to "none".
 #[component]
 fn binding_row(
     name: String,
     mut value: Signal<String>,
-    actions: &'static [(&'static str, &'static str)],
+    mut capturing: Signal<i8>,
+    slot: i8,
 ) -> Element {
-    let row = "display:flex;align-items:center;margin-bottom:8px;gap:12px;";
+    let active = capturing.cloned() == slot;
+    let label = key_label(&value.cloned());
+    let btn_class = if active {
+        "key-btn capturing"
+    } else {
+        "key-btn"
+    };
+    let row = "display:flex;align-items:center;margin-bottom:8px;gap:8px;";
     let action_label = "width:80px;color:var(--fg);font-size:13px;";
-    let items = actions
-        .iter()
-        .map(|(id, text)| (*id, *text))
-        .collect::<Vec<_>>();
 
     rsx! {
         div {
             style: "{row}",
             span { style: "{action_label}", "{name}" }
-            select {
-                onchange: move |e| value.set(e.value()),
-                for (id, text) in items {
-                    option { value: "{id}", selected: value.cloned() == id, "{text}" }
-                }
+            button {
+                class: "{btn_class}",
+                onclick: move |_| capturing.set(slot),
+                if active { "按下任意键…" } else { "{label}" }
+            }
+            button {
+                class: "btn-clear",
+                title: "恢复为无",
+                onclick: move |_| {
+                    value.set(KEY_NONE.to_string());
+                    capturing.set(-1);
+                },
+                "×"
             }
         }
     }
@@ -249,6 +350,7 @@ fn binding_row(
 fn apply(cfg: &AppConfig) -> Result<(), String> {
     cfg.save()?;
     kanata_embed::apply_config(cfg)?;
+    crate::touchpad_state::set_managed(cfg.feature_enabled);
     log::info!("settings saved and applied: {cfg:?}");
     Ok(())
 }
