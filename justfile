@@ -1,4 +1,4 @@
-# Task runner for the rust-agents-template repo.
+# Task runner for the enable-touchpad repo.
 # `just` (no arguments) lists all recipes.
 
 default:

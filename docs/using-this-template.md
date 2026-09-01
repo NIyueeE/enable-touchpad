@@ -1,14 +1,13 @@
-# Using this template
+# Renaming a fork of this project
 
 > English | [简体中文](using-this-template.zh.md)
 
-You clicked **Use this template** — congrats, your new repo already has strict
-lints, layered hooks, CI, and a release pipeline. Now rename things so the
-project is *yours*. Every file that needs a change is listed below; grep for
-the old name to be safe:
+This repository started as a strict Rust template and is now the
+`enable-touchpad` project. If you fork it and rename it, use the checklist
+below; grep for the current name to be safe:
 
 ```bash
-grep -rn "rust-agents-template" . --exclude-dir={.git,target}
+grep -rn "enable-touchpad" . --exclude-dir={.git,target}
 ```
 
 ## Rename checklist
@@ -16,14 +15,14 @@ grep -rn "rust-agents-template" . --exclude-dir={.git,target}
 | # | File | What to change |
 |---|------|----------------|
 | 1 | `Cargo.toml` | `name`, `description`, `repository`; reset `version` if you like |
-| 2 | `Cargo.lock` | no manual edit — regenerate with `cargo build` (or delete it first) |
-| 3 | `tests/cli.rs` | `env!("CARGO_BIN_EXE_rust-agents-template")` → your new binary name |
-| 4 | `.github/workflows/release.yml` | `bin: rust-agents-template` → your new binary name |
+| 2 | `Cargo.lock` | no manual edit — regenerate with `cargo check` (or delete it first) |
+| 3 | `.github/workflows/release.yml` | `bin: enable-touchpad` → your new binary name |
+| 4 | `.github/workflows/test-build.yml` | artifact paths `enable-touchpad` / `enable-touchpad.exe` |
 | 5 | `justfile` | top comment (cosmetic) |
 | 6 | `README.md` / `README.zh.md` | title, badge URLs, clone URL, intro text |
 | 7 | `LICENSE` / `LICENSE-MIT` / `LICENSE-APACHE` | copyright holder and year |
 | 8 | `SECURITY.md`, `CONTRIBUTING.md`, `AGENTS.md` | optional: adjust contact / wording |
-| 9 | `src/main.rs` | crate-level doc comment (missing_docs is enforced) |
+| 9 | `src/bin/enable-touchpad/` | rename the binary directory and its crate-level doc comment |
 
 Files that need **no** change: `rust-toolchain.toml`, `deny.toml`,
 `githooks/*`, `.editorconfig`, `docs/*` (relative links), `.github/dependabot.yml`.

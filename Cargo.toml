@@ -1,10 +1,10 @@
 [package]
-name = "rust-agents-template"
+name = "enable-touchpad"
 version = "0.1.0"
 edition = "2024"
-description = "An agent-facing Rust project template with strict lints, layered git hooks, and CI."
+description = "Windows 11 precision-touchpad utility with an embedded kanata layer engine and a layered multi-platform architecture."
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/NIyueeE/rust-agents-template"
+repository = "https://github.com/NIyueeE/enable-touchpad"
 
 [workspace]
 members = [".", "etp-core", "etp-platform", "etp-ffi"]

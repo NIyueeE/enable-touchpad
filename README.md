@@ -1,25 +1,41 @@
-# rust-agents-template
+# enable-touchpad
 
-> A Rust project template: strict lints, layered git hooks, cargo-deny, CI/CD.
+> Hold a layer key to reclaim your touchpad: the touchpad comes back while the
+> layer is held and soft-disables again afterwards.
 
-[![CI](https://github.com/NIyueeE/rust-agents-template/actions/workflows/ci.yml/badge.svg)](https://github.com/NIyueeE/rust-agents-template/actions/workflows/ci.yml)
+[![CI](https://github.com/NIyueeE/enable-touchpad/actions/workflows/ci.yml/badge.svg)](https://github.com/NIyueeE/enable-touchpad/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE)
 
 [English](README.md) | [简体中文](README.zh.md)
 
-An opinionated, batteries-included starting point for new Rust binary projects —
-featuring a strict lint policy and an automated, layered check pipeline
-(pre-commit / pre-push / CI).
+> **Platform: Windows 11 (adapted).** A precision touchpad is required; other
+> platforms are planned behind the platform-adaptation layer.
+
+A small Windows tray application that embeds the kanata keyboard engine as a
+library. While the configurable layer key (CapsLock by default) is held, a
+`mouse` layer activates and the system performs the touchpad soft on/off; the
+app never disables devices itself.
 
 ## Features
 
-- **Latest stable toolchain** — `rust-toolchain.toml` declares `channel = "stable"`,
-  so rustup always resolves the newest stable release on every machine, with
-  `clippy` and `rustfmt` bundled as required components.
-- **Strict lints** — `unsafe_code = "forbid"`, clippy `all` + `pedantic` at `deny`
-  (see [Lint policy](docs/lint-policy.md)).
-- **Layered check gates** — fast gates before every commit, heavyweight gates
-  before every push, CI enforcing the same chain (see [Checks](docs/checks.md)).
+- **Windows 11 adapted** — the precision-touchpad state query and the soft
+  toggle path were verified on Windows 11 (see [demo/README.md](demo/README.md)).
+- **Embedded kanata engine** — no kernel driver, no separate process; kanata
+  v1.11 runs inside the single executable (LL-hook capture + SendInput output).
+- **Captured bindings, not dropdowns** — click a row, press any supported key:
+  letters, digits, F-keys, modifiers, numpad, and more. `Escape` cancels and
+  `CapsLock` stays the fixed layer hold key.
+- **State watchdog** — while the layer key is not held, the official
+  precision-touchpad state is sampled and drift is corrected with the same soft
+  chord; with the master switch off, the touchpad belongs to the system again.
+- **Layered architecture** — `etp-core` (domain), `etp-platform` (the single
+  platform-adaptation layer), `etp-ffi` (Windows-only FFI leaf), and the
+  application binary written against the `Platform` trait.
+- **Strict check pipeline** — `rust-toolchain.toml` declares
+  `channel = "stable"` with `clippy` and `rustfmt` bundled, `unsafe_code = "forbid"`,
+  clippy `all` + `pedantic` at `deny` (see [Lint policy](docs/lint-policy.md)),
+  fast gates before every commit, heavyweight gates before every push, and CI
+  enforcing the same chain (see [Checks](docs/checks.md)).
 - **One-tag releases** — multi-platform binaries built on `v*` tags
   (see [Release](docs/release.md)).
 - **Rust 2024 edition**.
@@ -27,23 +43,30 @@ featuring a strict lint policy and an automated, layered check pipeline
 ## Quick start
 
 ```bash
-git clone https://github.com/NIyueeE/rust-agents-template.git
-cd rust-agents-template
+git clone https://github.com/NIyueeE/enable-touchpad.git
+cd enable-touchpad
 
-# one-time setup per clone: activate hooks + install missing tools
+# development: one-time setup per clone — activate hooks + install missing tools
 just setup   # (or manually: git config core.hooksPath githooks)
 
-cargo run
+cargo run    # Linux/macOS print the stub; run the real app on Windows
 
 # run the full check chain any time — identical to hooks + CI
 just check
 ```
 
+On Windows 11, build or download the exe and run it as administrator: hold the
+layer key to enable the touchpad, release to soft-disable it again. Right-click
+the tray icon to open the settings window; saving regenerates the kanata
+config and hot-applies it. Details and limitations live in
+[demo/README.md](demo/README.md).
+
 ## Documentation
 
 | Document | Content |
 |----------|---------|
-| [docs/using-this-template.md](docs/using-this-template.md) | derive a new project: the rename checklist |
+| [demo/README.md](demo/README.md) | Windows 11 usage, setup, and demo limitations |
+| [docs/using-this-template.md](docs/using-this-template.md) | renaming a fork of this project: the rename checklist |
 | [docs/checks.md](docs/checks.md) | the eight gates, layered hooks, CI |
 | [docs/lint-policy.md](docs/lint-policy.md) | every lint and its level, waiver rules |
 | [docs/release.md](docs/release.md) | tagging → multi-platform binaries |

@@ -2,6 +2,9 @@
 
 > English | [简体中文](README.zh.md)
 
+> **Status: Windows 11 adapted.** Verified on a real Windows 11 device with a
+> precision touchpad.
+
 A proof-of-concept for the `enable-touchpad` idea on Windows, shipped as a
 **single executable**:
 
@@ -61,8 +64,8 @@ Do **not** run an external kanata at the same time (double key capture).
   `%APPDATA%\enable-touchpad\kanata.kbd` is the single place to adjust.
 - Touchpad enable/disable is entirely system-owned — the app has no fallback
   for machines where the combo is unbound. The state watchdog needs
-  Windows 11 and a precision touchpad (`SPI_GETTOUCHPADPARAMETERS`);
-  elsewhere it logs "SPI unavailable" once and stays inert.
+  Windows 11 and a precision touchpad (`SPI_GETTOUCHPADPARAMETERS`); on
+  other systems it logs "SPI unavailable" once and stays inert.
 - Duplicate bindings collapse to the first claim (e.g. one key bound to two
   actions acts for the first only).
 - The UI renders in a system WebView (dioxus desktop); a pure-GPU native

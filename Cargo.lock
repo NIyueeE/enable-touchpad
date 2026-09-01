@@ -1351,6 +1351,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "252afb9ae5eaa683babdc6a068b3f5726eb19e05070c731f9b2a23a7c3e8ed34"
 
 [[package]]
+name = "enable-touchpad"
+version = "0.1.0"
+dependencies = [
+ "dioxus",
+ "etp-core",
+ "etp-platform",
+ "log",
+ "simplelog",
+ "tray-icon 0.24.2",
+]
+
+[[package]]
 name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4382,18 +4394,6 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "rust-agents-template"
-version = "0.1.0"
-dependencies = [
- "dioxus",
- "etp-core",
- "etp-platform",
- "log",
- "simplelog",
- "tray-icon 0.24.2",
 ]
 
 [[package]]

@@ -1,13 +1,12 @@
-# 从本模板派生新项目
+# 从本项目 fork 后改名
 
 > [English](using-this-template.md) | 简体中文
 
-点击 **Use this template** 之后,你的新仓库就已经自带严格 lint、分层 hook、
-CI 和发布流水线了。接下来把项目改成*你的*名字。下面是需要改动的全部文件;
-改完可以用 grep 兜底确认:
+本仓库最初是一个严格 Rust 模板,现在是 `enable-touchpad` 项目。如果你 fork
+后要改名,按下面的清单走;改完可以用 grep 兜底确认:
 
 ```bash
-grep -rn "rust-agents-template" . --exclude-dir={.git,target}
+grep -rn "enable-touchpad" . --exclude-dir={.git,target}
 ```
 
 ## 改名清单
@@ -15,14 +14,14 @@ grep -rn "rust-agents-template" . --exclude-dir={.git,target}
 | # | 文件 | 要改什么 |
 |---|------|----------|
 | 1 | `Cargo.toml` | `name`、`description`、`repository`;`version` 想重置就重置 |
-| 2 | `Cargo.lock` | 无需手动改 —— `cargo build` 会自动再生(也可以先删掉) |
-| 3 | `tests/cli.rs` | `env!("CARGO_BIN_EXE_rust-agents-template")` → 新的二进制名 |
-| 4 | `.github/workflows/release.yml` | `bin: rust-agents-template` → 新的二进制名 |
+| 2 | `Cargo.lock` | 无需手动改 —— `cargo check` 会自动再生(也可以先删掉) |
+| 3 | `.github/workflows/release.yml` | `bin: enable-touchpad` → 新的二进制名 |
+| 4 | `.github/workflows/test-build.yml` | artifact 路径 `enable-touchpad` / `enable-touchpad.exe` |
 | 5 | `justfile` | 顶部注释(仅文案) |
 | 6 | `README.md` / `README.zh.md` | 标题、徽章 URL、克隆 URL、简介文案 |
 | 7 | `LICENSE` / `LICENSE-MIT` / `LICENSE-APACHE` | 版权持有人与年份 |
 | 8 | `SECURITY.md`、`CONTRIBUTING.md`、`AGENTS.md` | 可选:调整联系方式 / 措辞 |
-| 9 | `src/main.rs` | crate 级文档注释(missing_docs 强制) |
+| 9 | `src/bin/enable-touchpad/` | 重命名二进制目录与 crate 级文档注释 |
 
 **无需改动**的文件:`rust-toolchain.toml`、`deny.toml`、`githooks/*`、
 `.editorconfig`、`docs/*`(均为相对链接)、`.github/dependabot.yml`。

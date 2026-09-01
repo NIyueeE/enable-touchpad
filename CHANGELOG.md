@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Windows feasibility demo (`demo/`, demo branch for now): a single-exe
+- Windows feasibility demo (merged to `main`): a single-exe
   Dioxus desktop app with a tray icon and a small settings window (hidden by
   default) for the mouse-layer key bindings; **kanata v1.11 is embedded as a
   library** (LL-hook keyboard capture, no kernel driver, no separate
@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hot-apply over kanata's TCP `Reload` command; detailed logs go to
   `%APPDATA%\enable-touchpad\enable-touchpad.log`. Compiles for
   `cfg(windows)` only (other targets build a stub).
+  **Windows 11 is adapted**: verified on a real Windows 11 device with a
+  precision touchpad.
 - Layer key bindings are **captured from the keyboard** instead of a fixed
   dropdown: click a row, press any supported key (W3C `KeyboardEvent.code`
   names pass straight into the generated kanata config; `Escape` cancels,
@@ -41,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `kanata_embed` / `touchpad_state` binary modules were dissolved into these
   crates. The settings window grew to 440×400 to fit the capture hints and
   footer.
+- Project identity: the root package is now **enable-touchpad**; the
+  template hello-world binary, its smoke test, and the remaining template
+  placeholders were removed or updated.
 
 ## [0.1.0] - 2026-08-31
 

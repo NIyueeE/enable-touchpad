@@ -155,14 +155,15 @@ code-level.**
   before tagging (§5), and reproducing platform-specific issues on an exact
   commit.
 
-## 7. Deriving a new project from this template
+## 7. Renaming a fork of this project
 
-- Click **Use this template**, then follow the rename checklist in
-  docs/using-this-template.md. The three traps that break automation if
-  missed:
+- This repository is now the `enable-touchpad` project. If a fork renames
+  itself, follow the rename checklist in docs/using-this-template.md. The
+  traps that break automation if missed:
   1. `Cargo.toml` — `name` / `repository`;
-  2. `tests/cli.rs` — `env!("CARGO_BIN_EXE_rust-agents-template")`;
-  3. `.github/workflows/release.yml` — `bin: rust-agents-template`.
+  2. `.github/workflows/release.yml` — `bin: enable-touchpad`;
+  3. `.github/workflows/test-build.yml` — artifact paths
+     `enable-touchpad` / `enable-touchpad.exe`.
 - After renaming: `just setup` → `just check` → first commit (the pre-commit
   gate runs automatically and `just check` is the safety net for anything
   missed).
@@ -221,7 +222,7 @@ code-level.**
 
 | Question | Where |
 |----------|-------|
-| How to derive and rename a new project | docs/using-this-template.md |
+| How to rename a fork of this project | docs/using-this-template.md |
 | What each gate runs, how to handle a block | docs/checks.md |
 | Lint levels and waiver rules | docs/lint-policy.md |
 | Release mechanics, test builds | docs/release.md |

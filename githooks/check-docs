@@ -118,9 +118,9 @@ else
   errors=$((errors + 1))
 fi
 
-# soft notice: placeholders are expected in the template repo itself
+# soft notice: {{...}} placeholders may still exist in fork-in-progress repos
 if grep -qF '{{' README.md README.zh.md; then
-  echo "  note: {{...}} placeholders still present (normal for this template repo)"
+  echo "  note: {{...}} placeholders still present"
 fi
 
 if [ "$errors" -eq 0 ]; then

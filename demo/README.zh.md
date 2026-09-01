@@ -2,6 +2,8 @@
 
 > English | [README.md](README.md)
 
+> **状态:Windows 11 已适配。** 已在真实 Windows 11 设备 + 精确式触摸板上验证。
+
 `enable-touchpad` 设想在 Windows 上的概念验证,交付形态是**单个可执行文件**:
 
 - **kanata 以库的形式内嵌在本应用里**(kanata v1.11,低级钩子捕获——无需内核

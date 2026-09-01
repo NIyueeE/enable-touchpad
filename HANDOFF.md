@@ -7,15 +7,23 @@ something the next session needs to know.
 
 ## Quick orientation
 
-- What this repo is: `rust-agents-template` — a public GitHub template repo
-  for Rust binary projects with strict lints, layered git hooks,
-  changelog-driven releases, and agent-facing rules.
-  Live: https://github.com/NIyueeE/rust-agents-template
+- What this repo is: `enable-touchpad` — a Windows 11 tray utility that
+  soft-enables the touchpad while a configurable layer key is held and
+  soft-disables it again afterwards. It embeds kanata as a library and is
+  layered for future platforms.
+  Live: https://github.com/NIyueeE/enable-touchpad
 - Read order: AGENTS.md (rules) → this file (state) → docs/ (topic pages).
 - Local loop: `just setup` (once) → `just check` (full chain) → commit/push.
 - Tests: `just test` (cargo-nextest when installed, otherwise `cargo test`).
 
-## Current state (2026-08-31)
+## Current state (2026-09-01, `main`)
+
+- **Merged**: `demo/windows-feasibility` graduated into `main` with a
+  `--no-ff` merge; the demo branch stays as an archive. The Windows 11
+  adapter is marked **adapted** in the READMEs and the demo notes.
+- **Renamed**: the root package is now `enable-touchpad` (was
+  `rust-agents-template`). The template hello-world binary and its smoke test
+  were removed; the real app binary is `src/bin/enable-touchpad/`.
 
 - **Layered architecture (this branch)**: the app binary is the application
   layer (`src/bin/enable-touchpad/`: UI, tray, config store, watchdog),
@@ -27,9 +35,10 @@ something the next session needs to know.
   dissolved into these crates. `etp-ffi/` remains a Windows-only FFI leaf
   (now `#![cfg(windows)]`, workspace member). `cargo test` runs all workspace
   members via `default-members`.
-- **Template finalized** at user request: release history and tags were reset,
-  and a clean baseline release `v0.1.0` was re-created to validate the whole
-  CI/CD flow after finalization.
+- **Project identity**: the repo was derived from a strict Rust template and
+  has now adopted its real project identity; the old template release history
+  and tags were reset earlier, and a clean baseline `v0.1.0` validated the
+  CI/CD flow.
 - Toolchain: floating stable (1.98.0 at the time of writing).
 - Gates: pre-commit fast gates (incl. secret scan) / pre-push heavy gates /
   CI identical; `githooks/check-docs` carries the docs↔code invariants
@@ -181,8 +190,28 @@ something the next session needs to know.
   log, simplelog); Linux gates stay green. Verification on Linux:
   `cargo clippy --all-targets --all-features -- -D warnings` (host) plus
   `cargo clippy --target x86_64-pc-windows-msvc --all-targets --all-features
-  -- -D warnings` (cross compile). Real-device testing still pending on a
-  Windows machine.
+  -- -D warnings` (cross compile). Windows 11 real-device testing is done;
+  the adapter is marked adapted.
+
+## Platform roadmap (planned, not scheduled)
+
+- The only multi-platform adaptation point is `etp-platform/` (`Platform`
+  trait). Application code must stay platform-neutral.
+- Current backends: `windows` (adapted, verified on Windows 11 with a
+  precision touchpad) and `fallback` (non-Windows placeholder).
+- **macOS (planned)**: add `etp-platform/src/macos/`. The toggle mechanism
+  must be researched first (CGEventTap / IOHID / a soft-toggle equivalent);
+  do not copy the Windows Ctrl+Win+F24 chord or `etp-ffi` FFI.
+- **Linux (planned)**: add `etp-platform/src/linux/`. Candidate directions
+  are libinput / uinput / xinput; X11 vs Wayland differences must be
+  validated before committing to one.
+- Before the first non-Windows backend: generalize the `Platform` trait —
+  `start_engine`, `apply_engine_config`, `tap_toggle_chord`, and
+  `touchpad_enabled` are currently Windows-shaped. Keep Windows specifics
+  inside the `windows` adapter; other platforms get their own FFI leaf
+  crates only if they need `unsafe`.
+- Each new platform must be verified on real hardware before its README
+  status changes to "adapted"; Linux host gates must stay green throughout.
 
 ## Decision log (why things are the way they are)
 
@@ -215,10 +244,10 @@ something the next session needs to know.
   floating stable toolchain; ask before adding one.
 - Action pins: SHAs with `# vX` comments; Dependabot tracks those comments —
   merge its bumps to stay current.
-- cargo-nextest evaluation (2026-08-31): works, but the suite is a single
-  smoke test, so there is nothing to speed up yet. Adopted as optional via
-  `just test`; pre-push and CI still run `cargo test`. Revisit when the suite
-  grows past ~10 tests.
+- cargo-nextest evaluation (2026-08-31): works, but the suite was then a
+  single smoke test. The template smoke test is gone; unit tests now live in
+  `etp-core`. Adopted as optional via `just test`; pre-push and CI still run
+  `cargo test`. Revisit when the suite grows past ~10 tests.
 - Consider tag-protection rulesets (restrict `v*` creation) if the repo gains
   collaborators.
 - Only the linux leg of `test-build.yml` has been exercised (see current
