@@ -1,86 +1,85 @@
 # enable-touchpad
 
-> Hold a layer key to reclaim your touchpad: the touchpad comes back while the
-> layer is held and soft-disables again afterwards.
+> Hold one key to bring your touchpad back for a moment. Release it, and the
+> touchpad soft-disables again.
 
 [![CI](https://github.com/NIyueeE/enable-touchpad/actions/workflows/ci.yml/badge.svg)](https://github.com/NIyueeE/enable-touchpad/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE)
 
 [English](README.md) | [简体中文](README.zh.md)
 
+`enable-touchpad` is a small Windows tray utility for people who keep the
+touchpad disabled most of the time, but still want it back for a few seconds
+when they actually need it.
+
+Press and hold the layer key (CapsLock by default): the touchpad becomes
+usable. Release the key: the touchpad goes back to its disabled state. There
+is no permanent mode to remember and nothing to uninstall — it behaves like a
+momentary switch for the touchpad.
+
 > **Platform: Windows 11 (adapted).** A precision touchpad is required; other
-> platforms are planned behind the platform-adaptation layer.
+> platforms are planned.
 
-A small Windows tray application that embeds the kanata keyboard engine as a
-library. While the configurable layer key (CapsLock by default) is held, a
-`mouse` layer activates and the system performs the touchpad soft on/off; the
-app never disables devices itself.
+## Why this exists
 
-## Features
+Some users disable the touchpad to avoid accidental cursor jumps while typing
+or using a mouse. The annoyance is that re-enabling it normally means digging
+through Windows settings every time.
 
-- **Windows 11 adapted** — the precision-touchpad state query and the soft
-  toggle path were verified on Windows 11 (see [demo/README.md](demo/README.md)).
-- **Embedded kanata engine** — no kernel driver, no separate process; kanata
-  v1.11 runs inside the single executable (LL-hook capture + SendInput output).
-- **Captured bindings, not dropdowns** — click a row, press any supported key:
-  letters, digits, F-keys, modifiers, numpad, and more. `Escape` cancels and
-  `CapsLock` stays the fixed layer hold key.
-- **State watchdog** — while the layer key is not held, the official
-  precision-touchpad state is sampled and drift is corrected with the same soft
-  chord; with the master switch off, the touchpad belongs to the system again.
-- **Layered architecture** — `etp-core` (domain), `etp-platform` (the single
-  platform-adaptation layer), `etp-ffi` (Windows-only FFI leaf), and the
-  application binary written against the `Platform` trait.
-- **Strict check pipeline** — `rust-toolchain.toml` declares
-  `channel = "stable"` with `clippy` and `rustfmt` bundled, `unsafe_code = "forbid"`,
-  clippy `all` + `pedantic` at `deny` (see [Lint policy](docs/lint-policy.md)),
-  fast gates before every commit, heavyweight gates before every push, and CI
-  enforcing the same chain (see [Checks](docs/checks.md)).
-- **One-tag releases** — multi-platform binaries built on `v*` tags
-  (see [Release](docs/release.md)).
-- **Rust 2024 edition**.
+This tool turns that into a single held key:
 
-## Quick start
+- hold the key → touchpad on
+- release the key → touchpad off again
+- close the tray app → the touchpad belongs to the system again
 
-```bash
-git clone https://github.com/NIyueeE/enable-touchpad.git
-cd enable-touchpad
+## How it works
 
-# development: one-time setup per clone — activate hooks + install missing tools
-just setup   # (or manually: git config core.hooksPath githooks)
+The app watches a configured layer key. While that key is held, it activates a
+mouse layer; when released, it sends the soft-disable action again. It also
+watches the official precision-touchpad state and corrects drift while the
+key is not held.
 
-cargo run    # Linux/macOS print the stub; run the real app on Windows
+It does **not** disable or uninstall any device. The touchpad is only
+soft-toggled while the tool is running.
 
-# run the full check chain any time — identical to hooks + CI
-just check
-```
+## Usage
 
-On Windows 11, build or download the exe and run it as administrator: hold the
-layer key to enable the touchpad, release to soft-disable it again. Right-click
-the tray icon to open the settings window; saving regenerates the kanata
-config and hot-applies it. Details and limitations live in
-[demo/README.md](demo/README.md).
+1. Download or build the Windows executable.
+2. Run it **as administrator**.
+3. Look for the tray icon.
+4. Hold the configured layer key (default: `CapsLock`) to enable the touchpad.
+5. Release it to soft-disable the touchpad again.
+6. Right-click the tray icon → `打开设置` to change bindings or turn the
+   master switch off.
 
-## Documentation
+Settings are hot-applied; you do not need to restart the app after saving.
 
-| Document | Content |
-|----------|---------|
-| [demo/README.md](demo/README.md) | Windows 11 usage, setup, and demo limitations |
-| [docs/using-this-template.md](docs/using-this-template.md) | renaming a fork of this project: the rename checklist |
-| [docs/checks.md](docs/checks.md) | the eight gates, layered hooks, CI |
-| [docs/lint-policy.md](docs/lint-policy.md) | every lint and its level, waiver rules |
-| [docs/release.md](docs/release.md) | tagging → multi-platform binaries |
-| [docs/structure.md](docs/structure.md) | what every file in this repo is for |
-| [HANDOFF.md](HANDOFF.md) | agent handoff: current state, decisions, open threads |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | how to contribute |
-| [SECURITY.md](SECURITY.md) | reporting vulnerabilities |
-| [AGENTS.md](AGENTS.md) | rules for AI coding agents (and humans) |
+## Configuration
 
-Each document has a `*.zh.md` 简体中文 counterpart.
+- Bind your own keys for left / middle / right mouse actions and the
+  CapsLock-layer action.
+- Keys are captured directly from the keyboard instead of picked from a
+  dropdown.
+- Turn the master switch off to leave the touchpad entirely to Windows.
+- Config lives under `%APPDATA%\enable-touchpad\`.
+- Logs also live under `%APPDATA%\enable-touchpad\`.
 
-## Contributing
+## Requirements and limits
 
-PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+- Windows 11 and a precision touchpad.
+- The tool relies on the system/driver behavior bound to its soft toggle.
+- If the soft toggle is not available on your machine, the app logs the
+  condition and does not pretend to work.
+- Other platforms are not supported yet.
+
+## Project notes
+
+Built with the Rust 2024 edition on the stable toolchain
+(`rust-toolchain.toml` declares `channel = "stable"`). For local development,
+hooks are enabled with `git config core.hooksPath githooks` (or `just setup`),
+and the full chain runs with `just check`. Project docs:
+`docs/using-this-template.md`, `docs/checks.md`, `docs/lint-policy.md`,
+`docs/release.md`, `docs/structure.md`, and `HANDOFF.md`.
 
 ## License
 
