@@ -5,6 +5,11 @@
 | Path | Purpose |
 |------|---------|
 | `src/main.rs` | binary entry point |
+| `src/bin/enable-touchpad/` | Windows demo binary (application layer): tray + settings UI + config store + watchdog, written against the platform trait |
+| `etp-core/` | cross-platform domain layer: config model, key allowlist, kanata config generator (unit-tested on Linux) |
+| `etp-platform/` | single platform-adaptation layer: `Platform` trait + Windows adapter (embedded kanata engine, touchpad state) and non-Windows fallback |
+| `etp-ffi/` | Windows-only FFI leaf crate for the precision-touchpad state query (isolates `unsafe`) |
+| `demo/` | Windows feasibility demo notes: bilingual README |
 | `tests/cli.rs` | smoke test for the binary |
 | `Cargo.toml` | manifest: strict `[lints]`, package metadata |
 | `Cargo.lock` | committed (binary template convention) |

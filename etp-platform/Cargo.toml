@@ -1,0 +1,27 @@
+[package]
+name = "etp-platform"
+version = "0.1.0"
+edition = "2024"
+description = "Platform adaptation layer for enable-touchpad: app paths, embedded kanata input engine, touchpad state queries"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+etp-core = { version = "0.1.0", path = "../etp-core" }
+log = "0.4.34"
+serde_json = "1.0.151"
+
+[target.'cfg(windows)'.dependencies]
+etp-ffi = { version = "0.1.0", path = "../etp-ffi" }
+kanata = { version = "1.11.0", default-features = false, features = ["tcp_server", "win_sendinput_send_scancodes"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+dbg_macro = "deny"
+todo = "warn"
