@@ -28,6 +28,7 @@ dbg_macro = "deny"
 todo = "warn"
 
 [target."cfg(windows)".dependencies]
+base64 = "0.23.1"
 dioxus = { version = "0.7.10", features = ["desktop"] }
 log = "0.4.34"
 png = "0.18.1"

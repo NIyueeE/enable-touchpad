@@ -29,6 +29,23 @@ static PLATFORM: OnceLock<PlatformRef> = OnceLock::new();
 /// Process-wide watchdog state, installed by [`launch`] for the same reason.
 static WATCHDOG: OnceLock<Arc<WatchdogState>> = OnceLock::new();
 
+/// `data:` URI of the designed icon for the title-bar `<img>`, built once
+/// from the same embedded 32px asset the window icon uses.
+static TITLE_ICON_SRC: OnceLock<String> = OnceLock::new();
+
+/// Returns the title-bar icon `data:` URI, encoding the embedded asset on
+/// first use.
+fn title_icon_src() -> &'static str {
+    TITLE_ICON_SRC.get_or_init(|| {
+        use base64::Engine as _;
+        const PNG: &[u8] = include_bytes!("../../../assets/icon_32.png");
+        format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(PNG)
+        )
+    })
+}
+
 /// Newtype so `OnceLock` can hold an unsized trait-object reference.
 #[derive(Clone, Copy)]
 struct PlatformRef(&'static dyn Platform);
@@ -72,8 +89,7 @@ color:var(--fg);outline:none;}
 .title{height:38px;flex:none;display:flex;align-items:center;gap:9px;
 padding:0 8px 0 14px;background:var(--card);border-bottom:1px solid var(--line);
 font-size:12.5px;color:var(--dim);letter-spacing:.2px;}
-.dot{width:9px;height:9px;border-radius:50%;background:var(--accent);
-box-shadow:0 0 7px var(--accent-soft);}
+.app-icon{width:18px;height:18px;flex:none;border-radius:4px;-webkit-user-drag:none;}
 .btn-title{background:transparent;color:var(--dim);border:none;width:32px;height:28px;
 cursor:pointer;font-size:12px;border-radius:6px;
 transition:background .12s,color .12s;}
@@ -438,7 +454,7 @@ fn title_bar() -> Element {
             onmousedown: move |_| {
                 let _ = window().drag_window();
             },
-            span { class: "dot" }
+            img { class: "app-icon", src: title_icon_src() }
             span { "enable-touchpad" }
             span { style: "flex:1;" }
             button {

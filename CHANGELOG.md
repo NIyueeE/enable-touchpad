@@ -37,8 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Designed **app icon** (`assets/`): the touchpad artwork is embedded as
   the exe's multi-size icon resource at build time (Explorer/taskbar),
   feeds the tray via the icon resource with the in-process disc kept as
-  fallback, and a 32×32 layer decoded at startup drives the settings
-  window/taskbar icon.
+  fallback, and a 32×32 layer decoded at startup drives both the settings
+  window/taskbar icon and the title-bar image (replacing the plain dot).
 - Tray icon **left click** opens the settings window; tray installation
   failures are logged instead of silently dropped (the tray is the
   settings window's only door).
