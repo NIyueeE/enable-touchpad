@@ -38,10 +38,12 @@ const WATCHDOG_INTERVAL: Duration = Duration::from_millis(1200);
 /// read the pre-flip state and cause a double tap, so state checks back off
 /// for this long after any tap (ours or a transition's).
 const SETTLE_MS: u64 = 400;
-/// After this many consecutive corrections without effect, pause a minute —
+/// After this many consecutive corrections without effect, pause retries —
 /// tapping every cycle would only spam the log and the keyboard buffer.
+/// The pause is a **timestamp**, never a sleep: the watchdog thread must
+/// keep draining layer events (badge, transitions) while retries are off.
 const FAILURE_BACKOFF_THRESHOLD: u8 = 3;
-const FAILURE_BACKOFF: Duration = Duration::from_secs(60);
+const FAILURE_BACKOFF_MS: u64 = 60_000;
 
 /// Shared watchdog state, updated by the UI thread (master switch), the
 /// layer-change channel (expected on/off), and the watchdog thread itself.
@@ -57,6 +59,9 @@ pub struct WatchdogState {
     consecutive_failures: AtomicU8,
     /// `Platform::touchpad_enabled` usability; see the `SPI_*` constants.
     query_usability: AtomicU8,
+    /// Epoch-ms until which idle correction retries are paused (a timestamp,
+    /// so correcting never sleeps the watchdog thread).
+    backoff_until_ms: AtomicU64,
 }
 
 impl WatchdogState {
@@ -69,6 +74,7 @@ impl WatchdogState {
             last_tap_ms: AtomicU64::new(0),
             consecutive_failures: AtomicU8::new(0),
             query_usability: AtomicU8::new(SPI_USABLE),
+            backoff_until_ms: AtomicU64::new(0),
         }
     }
 
@@ -95,9 +101,13 @@ impl WatchdogState {
         self.verify_now(on);
     }
 
-    /// One immediate desired-state check for a layer transition (no settle
-    /// guard — the transition itself is the reason to look right now).
+    /// One immediate desired-state check for a layer transition. If a very
+    /// recent tap may still be settling (stale read risk), skip — the
+    /// periodic tick re-checks within ~1.2 s.
     fn verify_now(&self, desired: bool) {
+        if now_ms().saturating_sub(self.last_tap_ms.load(Ordering::Relaxed)) < SETTLE_MS {
+            return;
+        }
         match self.platform.touchpad_enabled() {
             Ok(actual) => {
                 self.query_usability.store(SPI_WORKS, Ordering::Relaxed);
@@ -181,6 +191,9 @@ impl WatchdogState {
         if expected == EXPECTED_UNMANAGED {
             return;
         }
+        if now_ms() < self.backoff_until_ms.load(Ordering::Relaxed) {
+            return;
+        }
         if now_ms().saturating_sub(self.last_tap_ms.load(Ordering::Relaxed)) < SETTLE_MS {
             return;
         }
@@ -210,11 +223,15 @@ impl WatchdogState {
         }
         let failures = self.consecutive_failures.fetch_add(1, Ordering::Relaxed) + 1;
         if failures >= FAILURE_BACKOFF_THRESHOLD {
-            log::warn!(
-                "correction did not stick after {failures} attempts; pausing {FAILURE_BACKOFF:?} before retrying",
-            );
-            std::thread::sleep(FAILURE_BACKOFF);
+            // Timestamp only — a sleeping watchdog would freeze layer-event
+            // processing (badge stuck, transitions dead) for a whole minute.
+            self.backoff_until_ms
+                .store(now_ms() + FAILURE_BACKOFF_MS, Ordering::Relaxed);
             self.consecutive_failures.store(0, Ordering::Relaxed);
+            log::warn!(
+                "correction did not stick after {failures} attempts; pausing idle retries for 60s \
+                 (layer transitions and the badge keep working)"
+            );
         }
     }
 

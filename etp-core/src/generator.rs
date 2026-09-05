@@ -103,8 +103,6 @@ pub fn generate_config_text(cfg: &AppConfig) -> String {
          \n\
          (defsrc {defsrc})\n\
          \n\
-         (deffakekeys\n  release-tap (macro C-M-f24))\n\
-         \n\
          (deflayer base\n{}\n)\n\
          \n\
          (deflayer mouse\n{}\n)\n",
