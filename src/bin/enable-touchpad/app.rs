@@ -42,40 +42,91 @@ const SLOT_RIGHT: i8 = 2;
 /// Slot index of the `CapsLock` action row.
 const SLOT_CAPS: i8 = 3;
 
+/// Outcome of the last 保存并应用 click; rendered as a coloured pill.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum SaveStatus {
+    /// Nothing saved yet (or the window was reopened).
+    Idle,
+    /// Config persisted and hot-applied to the running engine.
+    Ok,
+    /// Something failed; carries the error text.
+    Err(String),
+}
+
 /// Gruvbox palette for both themes; the webview follows the system setting.
+/// Semantic tokens: `--card` raises a panel above `--bg0`, `--btn` raises a
+/// keycap above `--card`, `--accent-soft`/`--shadow` back the glow and the
+/// keycap's bottom edge respectively.
 const GRUVBOX_CSS: &str = r#"
-:root{--bg0:#282828;--bg1:#3c3836;--bg2:#504945;--fg:#ebdbb2;--dim:#a89984;
---line:#504945;--accent:#83a598;--accent2:#8ec07c;--red:#fb4934;}
-@media (prefers-color-scheme: light){:root{--bg0:#fbf1c7;--bg1:#ebdbb2;--bg2:#d5c4a1;--fg:#3c3836;--dim:#7c6f64;
---line:#d5c4a1;--accent:#076678;--accent2:#427b58;--red:#9d0006;}}
-html,body{margin:0;overflow:hidden;background:var(--bg0);}
+:root{--bg0:#282828;--card:#3c3836;--line:#4a4540;--btn:#504945;--btn-h:#5e554d;
+--fg:#ebdbb2;--dim:#a89984;--accent:#83a598;--green:#8ec07c;--yellow:#fabd2f;
+--red:#fb4934;--accent-soft:rgba(131,165,152,.14);--shadow:rgba(0,0,0,.42);}
+@media (prefers-color-scheme: light){:root{--bg0:#fbf1c7;--card:#f2e5bc;--line:#e0d3a8;
+--btn:#fbf1c7;--btn-h:#fff8e2;--fg:#3c3836;--dim:#7c6f64;--accent:#076678;--green:#427b58;
+--yellow:#b57614;--red:#9d0006;--accent-soft:rgba(7,102,120,.10);--shadow:rgba(213,196,161,.9);}}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg0);}
 *{box-sizing:border-box;user-select:none;cursor:default;
 font-family:'Segoe UI','Microsoft YaHei',system-ui,sans-serif;}
-.key-btn{background:var(--bg1);color:var(--fg);border:1px solid var(--line);
-border-radius:6px;padding:5px 12px;min-width:132px;text-align:left;
-font-size:13px;cursor:pointer;}
-.key-btn:hover{border-color:var(--accent);}
-.key-btn.capturing{border-color:var(--accent);background:var(--bg2);color:var(--accent);}
+.root{height:100vh;display:flex;flex-direction:column;background:var(--bg0);
+color:var(--fg);outline:none;}
+.title{height:38px;flex:none;display:flex;align-items:center;gap:9px;
+padding:0 8px 0 14px;background:var(--card);border-bottom:1px solid var(--line);
+font-size:12.5px;color:var(--dim);letter-spacing:.2px;}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--accent);
+box-shadow:0 0 7px var(--accent-soft);}
+.btn-title{background:transparent;color:var(--dim);border:none;width:32px;height:28px;
+cursor:pointer;font-size:12px;border-radius:6px;
+transition:background .12s,color .12s;}
+.btn-title:hover{background:var(--btn);}
+.btn-title.btn-close:hover{background:var(--red);color:var(--bg0);}
+.body{flex:1;min-height:0;padding:12px 16px 12px;display:flex;flex-direction:column;
+gap:9px;}
+.instructions{color:var(--dim);font-size:12px;line-height:1.5;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+padding:9px 12px;display:flex;flex-direction:column;gap:7px;}
+.row{display:flex;align-items:center;gap:8px;}
+.row-label{width:82px;flex:none;color:var(--fg);font-size:13px;}
+.key-btn{background:var(--btn);color:var(--fg);border:1px solid var(--line);
+border-radius:8px;padding:6px 12px;min-width:128px;text-align:left;font-size:13px;
+cursor:pointer;box-shadow:0 2px 0 var(--shadow);
+transition:border-color .12s,background .12s,color .12s,box-shadow .12s;}
+.key-btn:hover{border-color:var(--accent);background:var(--btn-h);}
+.key-btn:active{box-shadow:0 1px 0 var(--shadow);transform:translateY(1px);}
+.key-btn.empty{color:var(--dim);}
+.key-btn .key-name{font-weight:600;letter-spacing:.4px;}
+.key-btn.capturing{border-color:var(--accent);background:var(--accent-soft);
+color:var(--accent);animation:breathe 1.2s ease-in-out infinite;}
+@keyframes breathe{50%{box-shadow:0 0 0 4px var(--accent-soft);}}
 .btn-clear{background:transparent;color:var(--dim);border:1px solid transparent;
-border-radius:5px;width:24px;height:26px;cursor:pointer;font-size:13px;}
-.btn-clear:hover{color:var(--red);border-color:var(--line);}
-input[type=checkbox]{appearance:none;-webkit-appearance:none;width:15px;height:15px;
-border:1px solid var(--line);border-radius:4px;background:var(--bg1);
-display:inline-grid;place-content:center;cursor:pointer;margin:0;}
-input[type=checkbox]::before{content:"";width:8px;height:8px;
-transform:scale(0);transition:transform .08s;background:var(--accent);
-clip-path:polygon(14% 44%,0 65%,50% 100%,100% 16%,80% 0,43% 62%);}
-input[type=checkbox]:checked{border-color:var(--accent);}
-input[type=checkbox]:checked::before{transform:scale(1);}
-.btn-primary{background:var(--accent);color:var(--bg0);border:none;border-radius:6px;
-padding:7px 16px;cursor:pointer;font-size:13px;font-weight:600;}
-.btn-primary:hover{background:var(--accent2);}
-.btn-title{background:transparent;color:var(--dim);border:none;width:30px;height:26px;
-cursor:pointer;font-size:13px;border-radius:5px;}
-.btn-title:hover{background:var(--bg2);}
-.btn-close{background:transparent;color:var(--dim);border:none;width:30px;height:26px;
-cursor:pointer;font-size:13px;border-radius:5px;}
-.btn-close:hover{background:var(--red);color:var(--bg0);}
+border-radius:6px;width:26px;height:29px;flex:none;cursor:pointer;font-size:14px;
+transition:color .12s,border-color .12s,background .12s;}
+.btn-clear:hover{color:var(--red);border-color:var(--line);background:var(--btn);}
+.status{min-height:18px;flex:none;font-size:11.5px;line-height:1.4;}
+.hint-err{color:var(--red);}
+.hint-warn{color:var(--yellow);}
+.switch{appearance:none;-webkit-appearance:none;position:relative;width:36px;height:20px;
+flex:none;margin:0;background:var(--btn);border:1px solid var(--line);
+border-radius:999px;cursor:pointer;display:block;
+transition:background .15s,border-color .15s;}
+.switch::before{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;
+border-radius:50%;background:var(--dim);transition:transform .15s,background .15s;}
+.switch:checked{background:var(--accent);border-color:var(--accent);}
+.switch:checked::before{transform:translateX(16px);background:var(--bg0);}
+.master{display:flex;align-items:center;gap:10px;}
+.master-label{font-size:13px;}
+.master-desc{margin-left:auto;color:var(--dim);font-size:11px;}
+.save-row{display:flex;align-items:center;gap:10px;margin-top:auto;flex-wrap:wrap;}
+.btn-primary{background:var(--accent);color:var(--bg0);border:none;border-radius:8px;
+padding:8px 18px;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:.3px;
+box-shadow:0 2px 0 var(--shadow);
+transition:filter .12s,transform .12s,box-shadow .12s;}
+.btn-primary:hover{filter:brightness(1.12);}
+.btn-primary:active{transform:translateY(1px);box-shadow:0 1px 0 var(--shadow);}
+.pill{font-size:11.5px;padding:2px 10px;border-radius:999px;border:1px solid;}
+.pill-ok{color:var(--green);border-color:var(--green);}
+.pill-err{color:var(--red);border-color:var(--red);}
+.divider{flex:none;height:1px;background:var(--line);}
+.footer{flex:none;color:var(--dim);font-size:11px;line-height:1.65;}
 "#;
 
 /// Configure and launch the desktop app. The window starts hidden and is
@@ -83,13 +134,18 @@ cursor:pointer;font-size:13px;border-radius:5px;}
 pub fn launch(platform: &'static dyn Platform, state: Arc<WatchdogState>) {
     let _ = PLATFORM.set(PlatformRef(platform));
     let _ = WATCHDOG.set(state);
+    // Same generated disc as the tray icon, so the taskbar entry matches.
+    let icon = tao::window::Icon::from_rgba(crate::tray::icon_rgba(), 32, 32);
     let config = Config::new()
+        .with_disable_context_menu(true)
         .with_window(
             WindowBuilder::new()
                 .with_title("enable-touchpad")
                 .with_visible(false)
                 .with_decorations(false)
-                .with_inner_size(LogicalSize::new(440.0, 400.0)),
+                .with_resizable(false)
+                .with_window_icon(icon.ok())
+                .with_inner_size(LogicalSize::new(440.0, 486.0)),
         )
         .with_close_behaviour(WindowCloseBehaviour::WindowHides);
     dioxus::LaunchBuilder::desktop()
@@ -106,6 +162,10 @@ pub fn handle_tray(
     match action {
         crate::tray::TrayAction::OpenSettings => {
             if let Some(win) = MAIN_WINDOW.get() {
+                // A window minimized via the custom "—" button is still
+                // "visible" in Win32 terms; restore it first, otherwise
+                // show+focus does nothing and the tray looks broken.
+                win.set_minimized(false);
                 win.set_visible(true);
                 win.set_focus();
             }
@@ -152,7 +212,7 @@ fn ui_root() -> Element {
     let middle_key = use_signal(move || initial_middle);
     let right_key = use_signal(move || initial_right);
     let caps_key = use_signal(move || initial_caps);
-    let save_state = use_signal(String::new);
+    let save_state = use_signal(|| SaveStatus::Idle);
     let capture_hint = use_signal(String::new);
     let capturing = use_signal(|| -1_i8);
 
@@ -185,16 +245,41 @@ fn settings_form(
     mut middle_key: Signal<String>,
     mut right_key: Signal<String>,
     mut caps_key: Signal<String>,
-    mut save_state: Signal<String>,
+    mut save_state: Signal<SaveStatus>,
     mut capture_hint: Signal<String>,
     mut capturing: Signal<i8>,
 ) -> Element {
     let platform = platform();
     let state = watchdog();
 
+    // Duplicate-binding detection: the generator resolves a shared key by
+    // first claim (左键 → 中键 → 右键 → CapsLock), so a later row with the
+    // same key would silently do nothing. Surface that instead of hiding it.
+    let bindings = [
+        ("鼠标左键", left_key.cloned()),
+        ("鼠标中键", middle_key.cloned()),
+        ("鼠标右键", right_key.cloned()),
+        ("CapsLock", caps_key.cloned()),
+    ];
+    let conflict: Option<String> = bindings.iter().enumerate().find_map(|(i, (name, key))| {
+        if key == KEY_NONE {
+            return None;
+        }
+        bindings[..i]
+            .iter()
+            .find(|(_, k)| k == key)
+            .map(|(prev, _)| {
+                format!(
+                    "{prev} 与 {name} 绑定了同一个键 {},只保留先声明的 {prev}",
+                    key_label(key)
+                )
+            })
+    });
+
     rsx! {
         div {
-            style: "background:var(--bg0);color:var(--fg);height:100vh;display:flex;flex-direction:column;",
+            class: "root",
+            tabindex: "-1",
             onmousedown: move |_| {
                 // Clicking anywhere outside a capture button stops the capture.
                 if capturing.cloned() >= 0 {
@@ -229,24 +314,32 @@ fn settings_form(
             },
             title_bar {}
             div {
-                style: "flex:1;padding:4px 16px 10px 16px;display:flex;flex-direction:column;",
+                class: "body",
                 capture_instructions {}
-                binding_row { name: "鼠标左键", value: left_key, capturing, slot: SLOT_LEFT }
-                binding_row { name: "鼠标中键", value: middle_key, capturing, slot: SLOT_MIDDLE }
-                binding_row { name: "鼠标右键", value: right_key, capturing, slot: SLOT_RIGHT }
-                binding_row { name: "CapsLock", value: caps_key, capturing, slot: SLOT_CAPS }
-                capture_status { hint: capture_hint }
                 div {
-                    style: "display:flex;align-items:center;gap:8px;margin:0 0 12px 0;",
-                    input {
-                        r#type: "checkbox",
-                        checked: feature.cloned(),
-                        onclick: move |_| feature.set(!feature.cloned()),
+                    class: "card",
+                    binding_row { name: "鼠标左键", value: left_key, capturing, slot: SLOT_LEFT }
+                    binding_row { name: "鼠标中键", value: middle_key, capturing, slot: SLOT_MIDDLE }
+                    binding_row { name: "鼠标右键", value: right_key, capturing, slot: SLOT_RIGHT }
+                    binding_row { name: "CapsLock", value: caps_key, capturing, slot: SLOT_CAPS }
+                }
+                capture_status { hint: capture_hint, conflict }
+                div {
+                    class: "card",
+                    label {
+                        class: "master",
+                        input {
+                            r#type: "checkbox",
+                            class: "switch",
+                            checked: feature.cloned(),
+                            onclick: move |_| feature.set(!feature.cloned()),
+                        }
+                        span { class: "master-label", "总开关 · CapsLock 层功能" }
+                        span { class: "master-desc", "关闭后 CapsLock 恢复系统默认" }
                     }
-                    span { style: "font-size:13px;", "总开关(CapsLock 层功能)" }
                 }
                 div {
-                    style: "display:flex;align-items:center;gap:10px;",
+                    class: "save-row",
                     button {
                         class: "btn-primary",
                         onclick: move |_| {
@@ -258,18 +351,24 @@ fn settings_form(
                                 capslock_key: caps_key.cloned(),
                             };
                             match apply(platform, &state, &cfg) {
-                                Ok(()) => save_state.set("已保存并热应用 ✓".to_string()),
-                                Err(e) => save_state.set(format!("失败: {e}")),
+                                Ok(()) => save_state.set(SaveStatus::Ok),
+                                Err(e) => save_state.set(SaveStatus::Err(e)),
                             }
                         },
                         "保存并应用"
                     }
-                    span { style: "color:var(--dim);font-size:12px;", "{save_state}" }
+                    match save_state.cloned() {
+                        SaveStatus::Idle => rsx! {},
+                        SaveStatus::Ok => rsx! {
+                            span { class: "pill pill-ok", "已保存并热应用 ✓" }
+                        },
+                        SaveStatus::Err(e) => rsx! {
+                            span { class: "pill pill-err", "失败: {e}" }
+                        },
+                    }
                 }
-                div {
-                    style: "margin-top:auto;",
-                    footer_notes {}
-                }
+                div { class: "divider" }
+                footer_notes {}
             }
         }
     }
@@ -280,19 +379,25 @@ fn settings_form(
 fn capture_instructions() -> Element {
     rsx! {
         div {
-            style: "color:var(--dim);font-size:12px;margin:6px 0 10px 0;line-height:1.5;",
-            "点击按钮后按下任意键即可绑定 · Esc 取消 · × 恢复为无 · {HOLD_KEY} 是固定的层触发键"
+            class: "instructions",
+            "点击按键框后按下任意键即可绑定 · Esc 取消 · × 恢复为无 · {HOLD_KEY} 是固定的层触发键"
         }
     }
 }
 
-/// Red status line under the rows (unsupported key notices live here).
+/// Status line under the rows: red capture notices win over the amber
+/// duplicate-binding hint (both must stay visible, one at a time is enough).
 #[component]
-fn capture_status(hint: Signal<String>) -> Element {
+fn capture_status(hint: Signal<String>, conflict: Option<String>) -> Element {
+    let has_hint = !hint.cloned().is_empty();
     rsx! {
         div {
-            style: "height:16px;color:var(--red);font-size:11px;margin:0 0 4px 0;",
-            "{hint}"
+            class: "status",
+            if has_hint {
+                span { class: "hint-err", "{hint}" }
+            } else if let Some(text) = conflict {
+                span { class: "hint-warn", "{text}" }
+            }
         }
     }
 }
@@ -302,7 +407,7 @@ fn capture_status(hint: Signal<String>) -> Element {
 fn footer_notes() -> Element {
     rsx! {
         div {
-            style: "color:var(--dim);font-size:11px;line-height:1.7;",
+            class: "footer",
             "CapsLock 按下/松开各发出一次 Ctrl+Win+F24(软开关由系统触摸板驱动执行)"
             br {}
             "状态矫正:未按住 CapsLock 时自动检测触摸板状态并软关闭(需 Win11 精确式触摸板)"
@@ -316,15 +421,11 @@ fn footer_notes() -> Element {
 fn title_bar() -> Element {
     rsx! {
         div {
-            style: "height:34px;display:flex;align-items:center;padding:0 6px 0 12px;gap:8px;
-                    background:var(--bg1);border-bottom:1px solid var(--line);
-                    font-size:12px;color:var(--dim);",
+            class: "title",
             onmousedown: move |_| {
                 let _ = window().drag_window();
             },
-            span {
-                style: "width:9px;height:9px;border-radius:50%;background:var(--accent);",
-            }
+            span { class: "dot" }
             span { "enable-touchpad" }
             span { style: "flex:1;" }
             button {
@@ -336,7 +437,7 @@ fn title_bar() -> Element {
                 "—"
             }
             button {
-                class: "btn-close",
+                class: "btn-title btn-close",
                 onmousedown: move |e| e.stop_propagation(),
                 onclick: move |_| {
                     if let Some(win) = MAIN_WINDOW.get() {
@@ -359,23 +460,28 @@ fn binding_row(
     slot: i8,
 ) -> Element {
     let active = capturing.cloned() == slot;
+    let empty = value.cloned() == KEY_NONE;
     let label = key_label(&value.cloned());
     let btn_class = if active {
         "key-btn capturing"
+    } else if empty {
+        "key-btn empty"
     } else {
         "key-btn"
     };
-    let row = "display:flex;align-items:center;margin-bottom:8px;gap:8px;";
-    let action_label = "width:80px;color:var(--fg);font-size:13px;";
 
     rsx! {
         div {
-            style: "{row}",
-            span { style: "{action_label}", "{name}" }
+            class: "row",
+            span { class: "row-label", "{name}" }
             button {
                 class: "{btn_class}",
                 onclick: move |_| capturing.set(slot),
-                if active { "按下任意键…" } else { "{label}" }
+                if active {
+                    "按下任意键…"
+                } else {
+                    span { class: "key-name", "{label}" }
+                }
             }
             button {
                 class: "btn-clear",

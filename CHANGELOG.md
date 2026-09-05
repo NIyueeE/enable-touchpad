@@ -29,9 +29,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cannot corrupt it into a silent reset-to-defaults.
 - A second app launch leaves a log entry instead of exiting silently,
   and the stale "app starting" line no longer comes from it.
+- Reopening the settings window from the tray now restores a minimized
+  window before focusing it, instead of appearing to do nothing.
 
 ### Added
 
+- Tray icon **left click** opens the settings window; tray installation
+  failures are logged instead of silently dropped (the tray is the
+  settings window's only door).
+- Settings window/taskbar icon generated in-process (the same disc as
+  the tray icon); the webview context menu is disabled and the window
+  is no longer resizable.
+
+### Changed
+
+- Settings UI (Gruvbox v3): card-based layout with keycap-style
+  capture buttons, a real toggle switch for the master switch, and
+  coloured save-status pills; the window is now 440×486 (render
+  verified headless in dark/light/capture/conflict states).
 - Windows feasibility demo (merged to `main`): a single-exe
   Dioxus desktop app with a tray icon and a small settings window (hidden by
   default) for the mouse-layer key bindings; **kanata v1.11 is embedded as a
