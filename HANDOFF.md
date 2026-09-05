@@ -24,8 +24,7 @@ something the next session needs to know.
   registered as `app::on_door_message`). tray-icon/muda state lives in
   main-thread `thread_local`s (their handles are `Rc<RefCell>` — never
   mutate from the forwarder thread). Left click = master toggle, menu =
-  打开设置 + checkable 总开关 + 退出, icon greys out when the master
-  switch is off. The master switch's single write point is
+  打开设置 + checkable 总开关 + 退出, icon dims when the master switch is off. The master switch's single write point is
   `WatchdogState::set_managed` (writes `main.rs::MASTER_SWITCH`); the UI
   checkbox lives in a `SyncStorage` signal
   (`app::FEATURE_SIGNAL` + `use_signal_sync`) so tray toggles update it

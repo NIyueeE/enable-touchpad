@@ -2,7 +2,7 @@
 //!
 //! **Left click** toggles the master switch; the right-click menu holds
 //! 打开设置, a checkable 总开关 item, and 退出. The icon reflects the
-//! master switch (coloured when on, greyscale when off).
+//! master switch (full colour when on, dimmed when off).
 //!
 //! tray-icon is `Rc<RefCell>` internally, so **every mutation runs on the
 //! main thread** through `thread_local` state; foreign threads request
@@ -34,9 +34,9 @@ thread_local! {
     static TRAY: RefCell<Option<TrayIcon>> = const { RefCell::new(None) };
     /// The checkable 总开关 menu item. Main thread only.
     static MASTER_ITEM: RefCell<Option<Rc<CheckMenuItem>>> = const { RefCell::new(None) };
-    /// Coloured (master on) tray icon. Main thread only.
+    /// Full-colour (master on) tray icon. Main thread only.
     static ICON_ON: RefCell<Option<tray_icon::Icon>> = const { RefCell::new(None) };
-    /// Greyscale (master off) tray icon. Main thread only.
+    /// Dimmed (master off) tray icon. Main thread only.
     static ICON_OFF: RefCell<Option<tray_icon::Icon>> = const { RefCell::new(None) };
 }
 
@@ -152,9 +152,13 @@ fn decode_click(event: &TrayIconEvent) -> Option<app::TrayAction> {
     }
 }
 
-/// Decode the designed 32px icon into a tray `Icon`; `gray` desaturates it
-/// for the master-off state.
-fn badge_icon(gray: bool) -> Option<tray_icon::Icon> {
+/// Darkening factor (percent of the original channel values) for the
+/// master-off tray icon: keeps the hue, just visibly dimmer.
+const DIM_PERCENT: u16 = 40;
+
+/// Decode the designed 32px icon into a tray `Icon`; `dim` darkens it for
+/// the master-off state.
+fn badge_icon(dim: bool) -> Option<tray_icon::Icon> {
     const PNG: &[u8] = include_bytes!("../../../assets/icon_32.png");
     let mut reader = png::Decoder::new(std::io::Cursor::new(PNG))
         .read_info()
@@ -162,16 +166,13 @@ fn badge_icon(gray: bool) -> Option<tray_icon::Icon> {
     let mut buf = vec![0_u8; reader.output_buffer_size()?];
     let info = reader.next_frame(&mut buf).ok()?;
     buf.truncate(info.buffer_size());
-    if gray {
+    if dim {
         for px in buf.as_chunks_mut::<4>().0 {
-            // Max luminance is 255*10/10 = 255, so the u8 cast is lossless;
-            // express it through try_from's unwrap_or to satisfy the lint.
-            let lum =
-                u8::try_from((u16::from(px[0]) * 3 + u16::from(px[1]) * 6 + u16::from(px[2])) / 10)
-                    .unwrap_or(u8::MAX);
-            px[0] = lum;
-            px[1] = lum;
-            px[2] = lum;
+            // 255 * DIM_PERCENT / 100 always fits a u8 (DIM_PERCENT < 100).
+            let dim = |c: u8| u8::try_from(u16::from(c) * DIM_PERCENT / 100).unwrap_or(u8::MAX);
+            px[0] = dim(px[0]);
+            px[1] = dim(px[1]);
+            px[2] = dim(px[2]);
         }
     }
     tray_icon::Icon::from_rgba(buf, info.width, info.height).ok()
