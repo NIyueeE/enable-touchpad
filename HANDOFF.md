@@ -18,6 +18,15 @@ something the next session needs to know.
 
 ## Current state (2026-09-01, `main`)
 
+- **Single-instance = named mutex**: the old TCP-port sentinel was
+  bypassable (std sets SO_REUSEADDR for TcpListener on Windows, so a
+  second process could re-bind the sentinel port). Two running instances
+  meant duplicate LL hooks and duplicate watchdogs racing the touchpad
+  toggle — the likely root of several device-reported flapping/stutter
+  reports. The guard is now `etp_ffi::instance_lock::acquire` (named
+  mutex, process lifetime). When swapping exes, ALWAYS exit the old
+  instance via the tray first; a stale process keeps hooks and the
+  toggle channel alive.
 - **Auto-repeat filter**: holding a layer key made Windows auto-repeat
   (~30 Hz) re-deliver keydowns; kanata re-emitted the held mouse button
   for each (key_repeat.rs: handle_repeat re-emits currently-held output),

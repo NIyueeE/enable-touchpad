@@ -31,12 +31,7 @@ mod tray;
 mod watchdog;
 
 #[cfg(windows)]
-use std::sync::{Arc, OnceLock};
-
-/// Sentinel port held open for the process lifetime: if another instance
-/// already bound it, this one exits instead of double-capturing keys.
-#[cfg(windows)]
-const INSTANCE_LOCK_PORT: u16 = 58270;
+use std::sync::Arc;
 
 /// Master switch (总开关) — source of truth shared by the settings UI, the
 /// tray icon/menu, and the watchdog. Written only via `WatchdogState::
@@ -45,25 +40,14 @@ const INSTANCE_LOCK_PORT: u16 = 58270;
 pub static MASTER_SWITCH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
 #[cfg(windows)]
-static INSTANCE_LOCK: OnceLock<std::net::TcpListener> = OnceLock::new();
-
-#[cfg(windows)]
-fn acquire_single_instance_lock() -> bool {
-    match std::net::TcpListener::bind(("127.0.0.1", INSTANCE_LOCK_PORT)) {
-        Ok(listener) => INSTANCE_LOCK.set(listener).is_ok(),
-        Err(_) => false,
-    }
-}
-
-#[cfg(windows)]
 fn main() {
     // Logging goes first: the data directory must exist before the lock check
     // so even a second launch leaves a trace in the log file.
     let platform = etp_platform::current();
     logging::init(platform);
 
-    if !acquire_single_instance_lock() {
-        log::error!("another enable-touchpad instance is already running; exiting");
+    if let Err(e) = etp_ffi::instance_lock::acquire("Local\\enable-touchpad-instance") {
+        log::error!("{e}; exiting");
         std::process::exit(1);
     }
     log::info!("single-instance lock acquired");

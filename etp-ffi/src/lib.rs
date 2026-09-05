@@ -85,6 +85,10 @@ pub mod window;
 /// kanata's).
 pub mod repeat_filter;
 
+/// Named-mutex single-instance guard (the TCP-port sentinel was bypassable
+/// on Windows).
+pub mod instance_lock;
+
 // This crate is the designated unsafe boundary of enable-touchpad (the main
 // crate forbids `unsafe_code` and cannot relax it locally); each use below is
 // a deliberate, documented Win32 call.

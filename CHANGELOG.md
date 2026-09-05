@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Single-instance guard was bypassable on Windows**: the sentinel was a
+  `TcpListener` on a fixed loopback port, but the standard library sets
+  `SO_REUSEADDR` for `TcpListener` there — a second process could bind the
+  same port and start a second instance. Two engines then processed every
+  keystroke (double clicks, doubled toggle chords racing each other),
+  which produced device-observed flapping, failed enables and stutter.
+  The guard is now a named Win32 mutex held for the process lifetime.
 - **Held-key drags stuttered**: holding a layer key (e.g. Q for left
   click) and sliding the touchpad stuttered badly — Windows auto-repeat
   re-delivered the held key's keydowns at ~30 Hz and kanata re-injected
