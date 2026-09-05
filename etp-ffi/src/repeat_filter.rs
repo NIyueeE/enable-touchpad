@@ -121,6 +121,10 @@ fn is_repeat_to_eat(vk: u32) -> bool {
         true // already held: this keydown is an auto-repeat
     } else {
         HELD_BITS.fetch_or(bit, Ordering::Relaxed);
+        log::info!(
+            "repeat filter: key {vk:#04x} pressed while the layer is active; \
+             its auto-repeats will be eaten"
+        );
         false // first press: let it through
     }
 }
