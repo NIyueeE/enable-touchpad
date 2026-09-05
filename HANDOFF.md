@@ -18,6 +18,22 @@ something the next session needs to know.
 
 ## Current state (2026-09-01, `main`)
 
+- **UI v3 + robustness pass**: the settings window was redesigned
+  (card sections, keycap-style capture buttons, a real toggle switch
+  for the master switch, coloured save-status pills, an amber inline
+  hint for duplicate bindings; 440×486, headless-render verified in
+  dark/light/capture/conflict states with the real stylesheet).
+  Hidden-bug fixes in the same pass: watchdog busy-spin once the
+  engine's layer-event sender dies; touchpad stranded ON when the
+  master switch went off while the layer was held (`set_managed(false)`
+  now queries the official state and taps once); click-vs-CapsLock
+  conflict resolution now follows the documented first-claim order
+  with a regression test; 3 s control-channel timeouts so a hung
+  kanata connection cannot freeze the UI thread; atomic config.json
+  writes (temp + rename); tray left click opens settings; tray
+  installation failures are logged; opening settings from the tray
+  restores a minimized window; a second launch leaves a log entry.
+
 - **Merged**: `demo/windows-feasibility` graduated into `main` with a
   `--no-ff` merge; the demo branch stays as an archive. The Windows 11
   adapter is marked **adapted** in the READMEs and the demo notes.
@@ -255,6 +271,13 @@ something the next session needs to know.
 
 ## Gotchas
 
+- On this dev container `RUSTUP_HOME` points at the read-only
+  `/opt/rust/rustup`, so every cargo/rustup call dies with
+  `could not create temp file ... Permission denied` (rustup tries to
+  sync the `stable` channel from rust-toolchain.toml). A writable copy
+  of the toolchain home with the Windows cross target already added
+  lives at `~/.rustup`: prefix cargo and hook invocations with
+  `export RUSTUP_HOME=$HOME/.rustup`.
 - `actions/checkout` etc. are SHA-pinned with `# vX` comments; bump via
   Dependabot PRs, or update the SHA and the comment together.
 - Renaming anything? Follow docs/using-this-template.md and re-grep for the
