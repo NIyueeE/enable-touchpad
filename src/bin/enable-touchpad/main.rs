@@ -38,6 +38,12 @@ use std::sync::{Arc, OnceLock};
 #[cfg(windows)]
 const INSTANCE_LOCK_PORT: u16 = 58270;
 
+/// Master switch (总开关) — source of truth shared by the settings UI, the
+/// tray icon/menu, and the watchdog. Written only via `WatchdogState::
+/// set_managed`.
+#[cfg(windows)]
+pub static MASTER_SWITCH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
 #[cfg(windows)]
 static INSTANCE_LOCK: OnceLock<std::net::TcpListener> = OnceLock::new();
 
@@ -74,7 +80,12 @@ fn main() {
         watchdog::spawn(Arc::clone(&watchdog), layer_rx);
     }
 
-    tray::install();
+    // The door must exist before the tray: tray visuals are applied through
+    // it on the main thread.
+    if let Err(e) = etp_ffi::window::init(app::on_door_message) {
+        log::error!("main-thread door failed: {e}; tray visuals will not update");
+    }
+    tray::install(cfg.feature_enabled);
     tray::spawn_forwarder(platform, Arc::clone(&watchdog));
     // Cosmetic: the cursor badge fails soft — log and run without it.
     if let Err(e) = cursor_badge::start() {

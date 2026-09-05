@@ -138,6 +138,9 @@ impl WatchdogState {
     /// before going unmanaged. The query guard keeps a blind tap from
     /// *switching the touchpad on* when it is already off.
     pub fn set_managed(&self, managed: bool) {
+        // The master switch's single write point: UI, tray, and quit paths
+        // all read this.
+        crate::MASTER_SWITCH.store(managed, Ordering::Relaxed);
         // A master-switch transition always hides the badge: the layer is
         // either gone (feature off) or about to be idle-off.
         crate::cursor_badge::set_visible(false);

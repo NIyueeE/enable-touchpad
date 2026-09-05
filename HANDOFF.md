@@ -18,6 +18,22 @@ something the next session needs to know.
 
 ## Current state (2026-09-01, `main`)
 
+- **Tray + settings-window architecture**: all tray/window mutations run
+  on the main thread via a message-only "door" window
+  (`etp_ffi::window`: `init(handler)` + `post(task, param)`, handler
+  registered as `app::on_door_message`). tray-icon/muda state lives in
+  main-thread `thread_local`s (their handles are `Rc<RefCell>` — never
+  mutate from the forwarder thread). Left click = master toggle, menu =
+  打开设置 + checkable 总开关 + 退出, icon greys out when the master
+  switch is off. The master switch's single write point is
+  `WatchdogState::set_managed` (writes `main.rs::MASTER_SWITCH`); the UI
+  checkbox lives in a `SyncStorage` signal
+  (`app::FEATURE_SIGNAL` + `use_signal_sync`) so tray toggles update it
+  live. Showing the settings window is a door task (plain
+  ShowWindow/SetForegroundWindow in `etp_ffi::window::show_and_activate`)
+  — do NOT reintroduce `win.set_visible/set_focus` from the forwarder
+  thread (tao's thread-executor hop froze the app while the window was
+  open; device-reported).
 - **Deterministic touchpad state sync**: kanata no longer blind-fires the
   Ctrl+Win+F24 toggle on layer entry/exit (a toggle inverts the state
   when the touchpad was already on). The watchdog queries

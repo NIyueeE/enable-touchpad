@@ -60,6 +60,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Tray master switch**: the tray icon is coloured while the 总开关 is on
+  and greyscale while off; **left-clicking the tray icon toggles the
+  master switch**, and the right-click menu gained a checkable 总开关
+  item next to 打开设置. All tray/window mutations run on the main
+  thread through a message-only "door" window in `etp-ffi`, which also
+  fixes the settings window silently freezing the app while it was open
+  (the tray forwarder previously hopped through tao's blocking
+  thread-executor to show the window).
 - **Mouse-layer cursor badge**: while the layer key is held, a 16px
   always-on-top click-through overlay pins the designed icon to the
   bottom-right corner of the mouse cursor (DPI-aware via the system

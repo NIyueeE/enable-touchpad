@@ -12,11 +12,45 @@
 use crate::config_store;
 use crate::watchdog::WatchdogState;
 use dioxus::desktop::tao;
+use dioxus::desktop::tao::platform::windows::WindowExtWindows;
 use dioxus::desktop::{Config, LogicalSize, WindowBuilder, WindowCloseBehaviour, window};
+use dioxus::prelude::SyncStorage;
 use dioxus::prelude::*;
 use etp_core::{AppConfig, CANCEL_KEY, HOLD_KEY, KEY_NONE, is_bindable, key_label};
 use etp_platform::Platform;
 use std::sync::{Arc, OnceLock};
+
+/// The tray action enum, re-exported so the forwarder can name it
+/// `app::TrayAction`.
+pub use crate::tray::TrayAction;
+
+/// The master-switch checkbox signal (`SyncStorage`), shared with foreign
+/// threads (tray toggles) via [`sync_feature_signal`].
+static FEATURE_SIGNAL: OnceLock<Signal<bool, SyncStorage>> = OnceLock::new();
+
+/// Push a master-switch change into the settings UI checkbox from any
+/// thread.
+pub fn sync_feature_signal(on: bool) {
+    if let Some(feature) = FEATURE_SIGNAL.get() {
+        *feature.write_unchecked() = on;
+    }
+}
+
+/// Handler running on the main thread for door tasks (tray visuals, window
+/// show). Registered in `main` via `etp_ffi::window::init`.
+pub fn on_door_message(task: usize, param: usize) {
+    match task {
+        etp_ffi::window::TASK_APPLY_MASTER_VISUALS => {
+            crate::tray::apply_master_visuals(param != 0);
+        }
+        etp_ffi::window::TASK_OPEN_SETTINGS => {
+            if let Some(win) = MAIN_WINDOW.get() {
+                etp_ffi::window::show_and_activate(win.hwnd());
+            }
+        }
+        _ => log::warn!("unknown door task {task}"),
+    }
+}
 
 /// Main window handle; tao windows are `Send`, so the tray thread can use it.
 static MAIN_WINDOW: OnceLock<Arc<tao::window::Window>> = OnceLock::new();
@@ -181,17 +215,19 @@ pub fn handle_tray(
     state: &Arc<WatchdogState>,
 ) {
     match action {
-        crate::tray::TrayAction::OpenSettings => {
-            if let Some(win) = MAIN_WINDOW.get() {
-                // A window minimized via the custom "—" button is still
-                // "visible" in Win32 terms; restore it first, otherwise
-                // show+focus does nothing and the tray looks broken.
-                win.set_minimized(false);
-                win.set_visible(true);
-                win.set_focus();
-            }
+        TrayAction::OpenSettings => {
+            // Main thread shows/restores the window (async door task — the
+            // forwarder thread must never hop through tao's executor).
+            etp_ffi::window::post(etp_ffi::window::TASK_OPEN_SETTINGS, 0);
         }
-        crate::tray::TrayAction::Quit => {
+        TrayAction::ToggleMaster => {
+            let new = !crate::MASTER_SWITCH.load(std::sync::atomic::Ordering::Relaxed);
+            state.set_managed(new);
+            sync_feature_signal(new);
+            crate::tray::request_master_visuals(new);
+            log::info!("master switch toggled from the tray: {new}");
+        }
+        TrayAction::Quit => {
             // Best effort: leaving while the layer key is held would strand
             // the touchpad enabled — tap once more, but only when the system
             // still reports it on (the chord is a toggle, never blind).
@@ -243,7 +279,8 @@ fn ui_root() -> Element {
         capslock_key: initial_caps,
     } = config_store::load(platform());
 
-    let feature = use_signal(move || initial_feature);
+    let feature = use_signal_sync(move || initial_feature);
+    let _ = FEATURE_SIGNAL.set(feature);
     let left_key = use_signal(move || initial_left);
     let middle_key = use_signal(move || initial_middle);
     let right_key = use_signal(move || initial_right);
@@ -276,7 +313,7 @@ fn ui_root() -> Element {
 /// The settings page body: capture rows, master switch, save button, footer.
 #[component]
 fn settings_form(
-    mut feature: Signal<bool>,
+    mut feature: Signal<bool, SyncStorage>,
     mut left_key: Signal<String>,
     mut middle_key: Signal<String>,
     mut right_key: Signal<String>,
@@ -546,6 +583,8 @@ fn apply(
         .apply_engine_config(cfg)
         .map_err(|e| e.to_string())?;
     state.set_managed(cfg.feature_enabled);
+    crate::tray::apply_master_visuals(cfg.feature_enabled);
+    sync_feature_signal(cfg.feature_enabled);
     log::info!("settings saved and applied: {cfg:?}");
     Ok(())
 }
