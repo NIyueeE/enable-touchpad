@@ -16,7 +16,7 @@ something the next session needs to know.
 - Local loop: `just setup` (once) → `just check` (full chain) → commit/push.
 - Tests: `just test` (cargo-nextest when installed, otherwise `cargo test`).
 
-## Current state (2026-09-01, `main`)
+## Current state (2026-09-05, `main`)
 
 - **Single-instance = named mutex**: the old TCP-port sentinel was
   bypassable (std sets SO_REUSEADDR for TcpListener on Windows, so a
@@ -333,6 +333,16 @@ something the next session needs to know.
   the demo graduates to a cross-platform product.
 
 ## Open threads
+
+- **Known issue (device report, v0.1.0)**: holding a layer key while
+  sliding the touchpad can still stutter. SPI state stays correct during
+  holds (logs show no flapping); suspected cause is the precision-touchpad
+  driver's typing guard reacting to *physical* keyboard auto-repeat
+  reports at HID level — below any user-mode filter (the repeat filter
+  only removes kanata's own re-injections). Mitigations given to the
+  user: Windows touchpad sensitivity → most sensitive, or drag via the
+  touchpad's own press-and-slide (native, smooth). Candidate next steps:
+  tap-only click semantics for layer keys, vendor-tool investigation.
 
 - MSRV (`rust-version`): deliberately undecided — it tensions with the
   floating stable toolchain; ask before adding one.

@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] - 2026-09-05
 
 ### Fixed
 
@@ -157,10 +157,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   template hello-world binary, its smoke test, and the remaining template
   placeholders were removed or updated.
 
-## [0.1.0] - 2026-08-31
-
-### Added
-
-- Initial release of the **rust-agents-template**: an agent-facing Rust
-  project template with strict lints, layered git hooks,
-  changelog-driven releases, and CI/CD test builds.
