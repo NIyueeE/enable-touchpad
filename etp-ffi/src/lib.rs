@@ -1,4 +1,5 @@
-//! Minimal Win32 FFI surface for reading the precision-touchpad enable state.
+//! Minimal Win32 FFI surface for enable-touchpad: the precision-touchpad
+//! state query and the mouse-layer cursor badge overlay.
 #![cfg(windows)]
 //!
 //! This lives in its own tiny crate because the main application crate sets
@@ -68,6 +69,10 @@ pub enum TouchpadStateError {
     /// so "enabled" would be meaningless.
     NoTouchpad,
 }
+
+/// Mouse-layer cursor badge overlay (click-through layered window pinned to
+/// the cursor). See the module docs for the design.
+pub mod cursor_badge;
 
 // This crate is the designated unsafe boundary of enable-touchpad (the main
 // crate forbids `unsafe_code` and cannot relax it locally); each use below is

@@ -52,7 +52,10 @@ soft-toggled while the tool is running.
 6. Right-click the tray icon → `打开设置` to change bindings or turn the
    master switch off.
 
-Settings are hot-applied; you do not need to restart the app after saving.
+While the layer key is held, a small badge pinned to the bottom-right of
+the mouse cursor shows the layer is active (click-through, never grabs
+the mouse). Settings are hot-applied; you do not need to restart the app
+after saving.
 
 ## Configuration
 

@@ -22,6 +22,8 @@ mod app;
 #[cfg(windows)]
 mod config_store;
 #[cfg(windows)]
+mod cursor_badge;
+#[cfg(windows)]
 mod logging;
 #[cfg(windows)]
 mod tray;
@@ -74,6 +76,10 @@ fn main() {
 
     tray::install();
     tray::spawn_forwarder(platform, Arc::clone(&watchdog));
+    // Cosmetic: the cursor badge fails soft — log and run without it.
+    if let Err(e) = cursor_badge::start() {
+        log::warn!("{e}; running without the layer cursor badge");
+    }
     app::launch(platform, Arc::clone(&watchdog));
 }
 

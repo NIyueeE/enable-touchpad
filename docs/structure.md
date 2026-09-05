@@ -6,10 +6,10 @@
 |------|---------|
 | `src/bin/enable-touchpad/` | application binary (application layer): tray + settings UI + config store + watchdog, written against the platform trait |
 | `build.rs` | embeds `assets/icon.ico` as the exe's icon resource (skipped with a warning where no Win32 resource compiler exists) |
-| `assets/` | icon assets: multi-size `icon.ico` (exe + tray resource), `icon_32.png` (window icon), `src/` original artwork, `make_icons.py` regeneration script |
+| `assets/` | icon assets: multi-size `icon.ico` (exe + tray resource), `icon_32.png` (window icon), `icon_16.png` (cursor badge), `src/` original artwork, `make_icons.py` regeneration script |
 | `etp-core/` | cross-platform domain layer: config model, key allowlist, kanata config generator (unit-tested on Linux) |
 | `etp-platform/` | single platform-adaptation layer: `Platform` trait + Windows adapter (embedded kanata engine, touchpad state) and non-Windows fallback |
-| `etp-ffi/` | Windows-only FFI leaf crate for the precision-touchpad state query (isolates `unsafe`) |
+| `etp-ffi/` | Windows-only FFI leaf crate: precision-touchpad state query + the mouse-layer cursor badge overlay (isolates `unsafe`) |
 | `demo/` | Windows feasibility demo notes: bilingual README |
 | `Cargo.toml` | manifest: strict `[lints]`, package metadata |
 | `Cargo.lock` | committed lockfile for reproducible binary builds |

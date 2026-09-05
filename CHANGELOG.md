@@ -34,6 +34,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Mouse-layer cursor badge**: while the layer key is held, a 16px
+  always-on-top click-through overlay pins the designed icon to the
+  bottom-right corner of the mouse cursor (DPI-aware via the system
+  cursor metrics) and hides the moment the layer exits; quick taps do
+  not flash it (150 ms show delay) and nothing survives a process kill.
+  Implemented in `etp-ffi` as a layered window (`UpdateLayeredWindow`),
+  no webview involved.
 - Designed **app icon** (`assets/`): the touchpad artwork is embedded as
   the exe's multi-size icon resource at build time (Explorer/taskbar),
   feeds the tray via the icon resource with the in-process disc kept as

@@ -1363,6 +1363,7 @@ dependencies = [
  "base64 0.23.1",
  "dioxus",
  "etp-core",
+ "etp-ffi",
  "etp-platform",
  "log",
  "png 0.18.1",

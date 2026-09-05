@@ -76,16 +76,18 @@ impl WatchdogState {
     }
 
     /// The platform engine reported a layer change: holding the layer key
-    /// means the touchpad should be on, releasing it means off.
+    /// means the touchpad should be on, releasing it means off. The cursor
+    /// badge mirrors the same signal.
     pub fn set_expected(&self, on: bool) {
         self.expected.store(
             if on { EXPECTED_ON } else { EXPECTED_OFF },
             Ordering::Relaxed,
         );
+        crate::cursor_badge::set_visible(on);
     }
 
     /// Master switch moved (startup or settings apply): unmanaged means hands
-    /// off.
+    /// off. Any transition also hides the cursor badge.
     ///
     /// Turning the feature off **while the layer was held** is a special case:
     /// the engine reload removes the layer entirely, so the physical key
@@ -95,6 +97,9 @@ impl WatchdogState {
     /// before going unmanaged. The query guard keeps a blind tap from
     /// *switching the touchpad on* when it is already off.
     pub fn set_managed(&self, managed: bool) {
+        // A master-switch transition always hides the badge: the layer is
+        // either gone (feature off) or about to be idle-off.
+        crate::cursor_badge::set_visible(false);
         if managed {
             self.expected.store(EXPECTED_OFF, Ordering::Relaxed);
             return;

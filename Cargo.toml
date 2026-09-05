@@ -30,6 +30,7 @@ todo = "warn"
 [target."cfg(windows)".dependencies]
 base64 = "0.23.1"
 dioxus = { version = "0.7.10", features = ["desktop"] }
+etp-ffi = { version = "0.1.0", path = "etp-ffi" }
 log = "0.4.34"
 png = "0.18.1"
 simplelog = "0.12.2"

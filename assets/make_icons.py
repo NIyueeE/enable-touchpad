@@ -42,7 +42,8 @@ def main() -> None:
     (HERE / "icon.ico").write_bytes(out)
 
     src64.resize((32, 32), Image.LANCZOS).save(HERE / "icon_32.png", optimize=True)
-    print(f"wrote icon.ico ({len(out)} bytes, {len(layers)} layers) and icon_32.png")
+    src16.save(HERE / "icon_16.png", optimize=True)
+    print(f"wrote icon.ico ({len(out)} bytes, {len(layers)} layers), icon_32.png, icon_16.png")
 
 
 if __name__ == "__main__":

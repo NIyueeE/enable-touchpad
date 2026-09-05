@@ -18,6 +18,17 @@ something the next session needs to know.
 
 ## Current state (2026-09-01, `main`)
 
+- **Mouse-layer cursor badge**: a click-through layered overlay
+  (`etp-ffi/src/cursor_badge.rs`, `UpdateLayeredWindow`, no webview)
+  pins `assets/icon_16.png` to the cursor's bottom-right corner while
+  the layer is held; the offset tracks the system cursor metrics
+  (SM_CXCURSOR/SM_CYCURSOR, DPI-aware), there is a 150 ms show delay,
+  and visibility is driven by the watchdog's expected state
+  (`set_expected`/`set_managed` → `cursor_badge::set_visible`). The
+  owner thread polls at ~125 Hz only while visible; a process kill
+  leaves nothing behind (no system cursor mutation). Win32 struct
+  layouts are hand-mirrored — verified by cross-compile only, real
+  device check pending.
 - **Real icon assets**: the user-supplied touchpad artwork lives in
   `assets/` (sources in `assets/src/`). `build.rs` (winresource) embeds
   `assets/icon.ico` (16/24/32/48/64) as exe icon resource 1 — Explorer,
