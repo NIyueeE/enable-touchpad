@@ -16,14 +16,16 @@
 //! - Nothing survives a process kill: the window dies with the thread and
 //!   no system state (cursor scheme, devices, ...) is ever modified.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
 
-/// The badge sits at the cursor sprite's bottom-right corner (queried via
-/// `GetSystemMetrics(SM_CXCURSOR/SM_CYCURSOR)` so it tracks the system DPI),
-/// pulled in by this overlap so it reads as attached to the cursor.
-const CORNER_OVERLAP: i32 = 2;
+/// The badge is centred on the cursor sprite's bottom-right corner (sprite
+/// size from `GetSystemMetrics(SM_CXCURSOR/SM_CYCURSOR)`, so it tracks the
+/// system DPI) — the same attachment the native "working in background"
+/// cursor uses for its spinner. Half the badge therefore overlaps the
+/// arrow, making it read as part of the cursor.
+static BADGE_SIZE: AtomicU32 = AtomicU32::new(16);
 /// Reposition cadence: one `GetCursorPos` + one `SetWindowPos` per tick,
 /// only while the badge is visible.
 const POLL: Duration = Duration::from_millis(8);
@@ -222,6 +224,7 @@ pub fn start(rgba: Vec<u8>, width: u32, height: u32) -> Result<(), String> {
             rgba.len()
         ));
     }
+    BADGE_SIZE.store(width.min(height), Ordering::Relaxed);
     let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
     let bgra = premultiply_bgra(&rgba);
     std::thread::Builder::new()
@@ -435,15 +438,17 @@ unsafe fn follow_loop(hwnd: Hwnd) {
 )]
 unsafe fn move_to_cursor(hwnd: Hwnd, extra: u32) {
     // SM_CXCURSOR = 13, SM_CYCURSOR = 14: current cursor sprite size,
-    // already DPI-scaled for this process.
+    // already DPI-scaled for this process. Centre the badge on the
+    // sprite's bottom-right corner (native working-cursor attachment).
     let (cx, cy) = (GetSystemMetrics(13), GetSystemMetrics(14));
+    let half = i32::try_from(BADGE_SIZE.load(Ordering::Relaxed)).unwrap_or(16) / 2;
     let mut pt = Point { x: 0, y: 0 };
     if GetCursorPos(&mut pt) != 0 {
         SetWindowPos(
             hwnd,
             0,
-            pt.x + cx - CORNER_OVERLAP,
-            pt.y + cy - CORNER_OVERLAP,
+            pt.x + cx - half,
+            pt.y + cy - half,
             0,
             0,
             SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | extra,

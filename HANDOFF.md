@@ -21,8 +21,9 @@ something the next session needs to know.
 - **Mouse-layer cursor badge**: a click-through layered overlay
   (`etp-ffi/src/cursor_badge.rs`, `UpdateLayeredWindow`, no webview)
   pins `assets/icon_16.png` to the cursor's bottom-right corner while
-  the layer is held; the offset tracks the system cursor metrics
-  (SM_CXCURSOR/SM_CYCURSOR, DPI-aware), there is a 150 ms show delay,
+  the layer is held; the badge is centred on the cursor
+  sprite's bottom-right corner (SM_CXCURSOR/SM_CYCURSOR, DPI-aware) —
+  the native working-cursor attachment — there is a 150 ms show delay,
   and visibility is driven by the watchdog's expected state
   (`set_expected`/`set_managed` → `cursor_badge::set_visible`). The
   owner thread polls at ~125 Hz only while visible; a process kill
