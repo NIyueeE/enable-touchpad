@@ -18,6 +18,16 @@ something the next session needs to know.
 
 ## Current state (2026-09-01, `main`)
 
+- **Real icon assets**: the user-supplied touchpad artwork lives in
+  `assets/` (sources in `assets/src/`). `build.rs` (winresource) embeds
+  `assets/icon.ico` (16/24/32/48/64) as exe icon resource 1 — Explorer,
+  taskbar, and the tray (`Icon::from_resource(1, Some((32, 32)))`,
+  in-process disc as fallback) all use it; `assets/icon_32.png` is
+  decoded at startup (png crate, windows dep) for the tao window icon.
+  On hosts without a Win32 resource compiler (Linux cross checks) the
+  embed degrades to a cargo warning; Windows CI runners embed it for
+  real. Regenerate the ico with `python3 assets/make_icons.py`
+  (needs Pillow; verified byte-identical to the committed assets).
 - **UI v3 + robustness pass**: the settings window was redesigned
   (card sections, keycap-style capture buttons, a real toggle switch
   for the master switch, coloured save-status pills, an amber inline

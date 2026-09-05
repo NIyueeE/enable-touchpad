@@ -32,11 +32,20 @@ pub fn install() {
     for item in items {
         let _ = menu.append(item);
     }
-    let icon = match tray_icon::Icon::from_rgba(icon_rgba(), 32, 32) {
+    // Prefer the designed icon that build.rs embeds into the exe as icon
+    // resource 1; fall back to the in-process disc when the resource is
+    // missing (e.g. a build where no resource compiler was available).
+    let icon = match tray_icon::Icon::from_resource(1, Some((32, 32))) {
         Ok(icon) => icon,
         Err(e) => {
-            log::error!("tray icon creation failed: {e}");
-            return;
+            log::warn!("icon resource 1 unavailable ({e:?}); using generated fallback");
+            match tray_icon::Icon::from_rgba(icon_rgba(), 32, 32) {
+                Ok(icon) => icon,
+                Err(e) => {
+                    log::error!("tray icon creation failed: {e}");
+                    return;
+                }
+            }
         }
     };
     match TrayIconBuilder::new()

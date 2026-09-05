@@ -5,6 +5,8 @@
 | 路径 | 用途 |
 |------|------|
 | `src/bin/enable-touchpad/` | 应用二进制(应用层):托盘 + 设置页 + 配置存取 + 看门狗,依赖平台 trait 编写 |
+| `build.rs` | 把 `assets/icon.ico` 作为 exe 图标资源嵌入(宿主没有 Win32 资源编译器时降级为告警)|
+| `assets/` | 图标资产:多尺寸 `icon.ico`(exe 与托盘资源)、`icon_32.png`(窗口图标)、`src/` 原始设计图、`make_icons.py` 再生成脚本 |
 | `etp-core/` | 跨平台领域层:配置模型、键位白名单、kanata 配置生成器(在 Linux 上单测)|
 | `etp-platform/` | 唯一的多平台适配层:`Platform` trait + Windows 适配器(内嵌 kanata 引擎、触摸板状态)与非 Windows 兜底 |
 | `etp-ffi/` | 仅 Windows 的 FFI 叶子 crate:精确式触摸板状态查询(隔离 `unsafe`)|

@@ -30,5 +30,9 @@ todo = "warn"
 [target."cfg(windows)".dependencies]
 dioxus = { version = "0.7.10", features = ["desktop"] }
 log = "0.4.34"
+png = "0.18.1"
 simplelog = "0.12.2"
 tray-icon = "0.24.2"
+
+[build-dependencies]
+winresource = "0.1.31"

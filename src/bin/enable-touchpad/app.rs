@@ -134,8 +134,7 @@ transition:filter .12s,transform .12s,box-shadow .12s;}
 pub fn launch(platform: &'static dyn Platform, state: Arc<WatchdogState>) {
     let _ = PLATFORM.set(PlatformRef(platform));
     let _ = WATCHDOG.set(state);
-    // Same generated disc as the tray icon, so the taskbar entry matches.
-    let icon = tao::window::Icon::from_rgba(crate::tray::icon_rgba(), 32, 32);
+    let icon = window_icon();
     let config = Config::new()
         .with_disable_context_menu(true)
         .with_window(
@@ -144,7 +143,7 @@ pub fn launch(platform: &'static dyn Platform, state: Arc<WatchdogState>) {
                 .with_visible(false)
                 .with_decorations(false)
                 .with_resizable(false)
-                .with_window_icon(icon.ok())
+                .with_window_icon(icon)
                 .with_inner_size(LogicalSize::new(440.0, 486.0)),
         )
         .with_close_behaviour(WindowCloseBehaviour::WindowHides);
@@ -188,6 +187,20 @@ fn platform() -> &'static dyn Platform {
         Some(platform_ref) => platform_ref.0,
         None => panic!("platform adapter not initialised"),
     }
+}
+
+/// Decode the designed 32×32 icon (embedded at compile time from
+/// `assets/icon_32.png`) into RGBA for the tao window/taskbar icon. `None`
+/// lets the caller fall back instead of failing the launch on a bad asset.
+fn window_icon() -> Option<tao::window::Icon> {
+    let bytes = include_bytes!("../../../assets/icon_32.png");
+    let mut reader = png::Decoder::new(std::io::Cursor::new(bytes))
+        .read_info()
+        .ok()?;
+    let mut buf = vec![0_u8; reader.output_buffer_size()?];
+    let info = reader.next_frame(&mut buf).ok()?;
+    buf.truncate(info.buffer_size());
+    tao::window::Icon::from_rgba(buf, info.width, info.height).ok()
 }
 
 /// Returns a clone of the process-wide watchdog state installed by [`launch`].
