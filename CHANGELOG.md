@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   directions (400 ms settle guard replaces the old 1.5 s cooldown).
   Machines without the state query keep the legacy blind tap per
   transition, and the tray-quit tap is query-guarded too.
+- **Cursor badge occlusion**: the badge re-asserts the topmost band on
+  every reposition, so other windows can no longer cover it
+  (`WS_EX_TOPMOST` alone does not always stick).
 - Watchdog: the layer-event loop could busy-spin once the engine's
   sender side was gone (`recv_timeout` returns `Disconnected`
   immediately without waiting); that branch now backs off like a

@@ -177,13 +177,15 @@ unsafe extern "system" {
 
 // Style / flag constants (WinUser.h).
 const WS_POPUP: u32 = 0x8000_0000;
+/// `SetWindowPos` insert-after handle: keep the badge in the topmost band
+/// (asserted on every move — `WS_EX_TOPMOST` alone does not always stick).
+const TOPMOST_INSERT: Hwnd = -1;
 const WS_EX_LAYERED: u32 = 0x0008_0000;
 const WS_EX_TRANSPARENT: u32 = 0x0000_0020;
 const WS_EX_TOPMOST: u32 = 0x0000_0008;
 const WS_EX_TOOLWINDOW: u32 = 0x0000_0080;
 const WS_EX_NOACTIVATE: u32 = 0x0800_0000;
 const SWP_NOSIZE: u32 = 0x0001;
-const SWP_NOZORDER: u32 = 0x0004;
 const SWP_NOACTIVATE: u32 = 0x0010;
 const SWP_SHOWWINDOW: u32 = 0x0040;
 const SWP_HIDEWINDOW: u32 = 0x0080;
@@ -409,12 +411,12 @@ unsafe fn follow_loop(hwnd: Hwnd) {
                 window_on = false;
                 SetWindowPos(
                     hwnd,
+                    TOPMOST_INSERT,
                     0,
                     0,
                     0,
                     0,
-                    0,
-                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_HIDEWINDOW,
+                    SWP_NOSIZE | SWP_NOACTIVATE | SWP_HIDEWINDOW,
                 );
             }
             (false, false) => {}
@@ -443,12 +445,12 @@ unsafe fn move_to_cursor(hwnd: Hwnd, extra: u32) {
     if GetCursorPos(&mut pt) != 0 {
         SetWindowPos(
             hwnd,
-            0,
+            TOPMOST_INSERT,
             pt.x + cx * 45 / 100 - 2,
             pt.y + cy / 2,
             0,
             0,
-            SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | extra,
+            SWP_NOSIZE | SWP_NOACTIVATE | extra,
         );
     }
 }
