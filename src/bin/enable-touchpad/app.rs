@@ -441,6 +441,10 @@ fn capture_status(hint: Signal<String>, conflict: Option<String>) -> Element {
 /// Static footer: how the toggle works, watchdog note, log location.
 #[component]
 fn footer_notes() -> Element {
+    let log = crate::logging::log_file().map_or_else(
+        || "未初始化(需可写的数据目录或 exe 目录)".to_string(),
+        |p| p.display().to_string(),
+    );
     rsx! {
         div {
             class: "footer",
@@ -448,7 +452,7 @@ fn footer_notes() -> Element {
             br {}
             "手动在系统设置中开启的触摸板若与目标状态不符,会在约 1.2 秒内被纠正(需 Win11 精确式触摸板)"
             br {}
-            "日志:%APPDATA%\\enable-touchpad\\enable-touchpad.log"
+            "日志:{log}"
         }
     }
 }
