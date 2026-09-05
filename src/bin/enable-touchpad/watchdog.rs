@@ -86,11 +86,26 @@ impl WatchdogState {
 
     /// Master switch moved (startup or settings apply): unmanaged means hands
     /// off.
+    ///
+    /// Turning the feature off **while the layer was held** is a special case:
+    /// the engine reload removes the layer entirely, so the physical key
+    /// release will never produce a layer-exit event (and its release chord)
+    /// again — the touchpad would stay on forever with nobody correcting it.
+    /// If the system still reports the touchpad enabled, fire one soft toggle
+    /// before going unmanaged. The query guard keeps a blind tap from
+    /// *switching the touchpad on* when it is already off.
     pub fn set_managed(&self, managed: bool) {
         if managed {
             self.expected.store(EXPECTED_OFF, Ordering::Relaxed);
-        } else {
-            self.expected.store(EXPECTED_UNMANAGED, Ordering::Relaxed);
+            return;
+        }
+        let was_on = self.expected.swap(EXPECTED_UNMANAGED, Ordering::Relaxed) == EXPECTED_ON;
+        if was_on && matches!(self.platform.touchpad_enabled(), Ok(true)) {
+            log::info!("feature disabled while the layer was held; sending one release tap");
+            self.mark_tap_now();
+            if let Err(e) = self.platform.tap_toggle_chord() {
+                log::error!("release tap after unmanaging failed: {e}");
+            }
         }
     }
 
@@ -113,7 +128,11 @@ impl WatchdogState {
                 Err(RecvTimeoutError::Timeout) => self.tick(),
                 Err(RecvTimeoutError::Disconnected) => {
                     // The engine died without layer events; keep enforcing
-                    // "off while idle" with the platform query alone.
+                    // "off while idle" with the platform query alone. Note
+                    // that `recv_timeout` returns `Disconnected` immediately
+                    // without waiting once the sender is gone — sleep here so
+                    // this branch cannot degenerate into a busy spin loop.
+                    std::thread::sleep(WATCHDOG_INTERVAL);
                     self.tick();
                 }
             }

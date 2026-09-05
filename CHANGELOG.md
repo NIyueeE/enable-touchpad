@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Watchdog: the layer-event loop could busy-spin once the engine's
+  sender side was gone (`recv_timeout` returns `Disconnected`
+  immediately without waiting); that branch now backs off like a
+  normal cycle.
+- Watchdog: turning the master switch off **while the layer key was
+  held** removed the layer before its release tap could fire and left
+  the touchpad stranded on with the watchdog unmanaged; switching to
+  unmanaged now sends one soft toggle when the official touchpad state
+  still reads enabled.
+
 ### Added
 
 - Windows feasibility demo (merged to `main`): a single-exe
