@@ -71,16 +71,21 @@ enum SaveStatus {
 }
 
 /// Gruvbox palette for both themes; the webview follows the system setting.
-/// Semantic tokens: `--card` raises a panel above `--bg0`, `--btn` raises a
-/// keycap above `--card`, `--accent-soft`/`--shadow` back the glow and the
-/// keycap's bottom edge respectively.
+/// Three elevation steps per theme (window `--bg0` → card `--card` → keycap
+/// `--btn`) use the hard/soft background variants so surfaces visibly stack,
+/// backed by `--card-shadow` (drop shadow + top bevel) and `--key-grad`
+/// (keycap face gradient).
 const GRUVBOX_CSS: &str = r#"
-:root{--bg0:#282828;--card:#3c3836;--line:#4a4540;--btn:#504945;--btn-h:#5e554d;
+:root{--bg0:#1d2021;--card:#32302f;--line:#454039;--btn:#504945;--btn-h:#5e554d;
 --fg:#ebdbb2;--dim:#a89984;--accent:#83a598;--green:#8ec07c;--yellow:#fabd2f;
---red:#fb4934;--accent-soft:rgba(131,165,152,.14);--shadow:rgba(0,0,0,.42);}
-@media (prefers-color-scheme: light){:root{--bg0:#fbf1c7;--card:#f2e5bc;--line:#e0d3a8;
---btn:#fbf1c7;--btn-h:#fff8e2;--fg:#3c3836;--dim:#7c6f64;--accent:#076678;--green:#427b58;
---yellow:#b57614;--red:#9d0006;--accent-soft:rgba(7,102,120,.10);--shadow:rgba(213,196,161,.9);}}
+--red:#fb4934;--accent-soft:rgba(131,165,152,.14);--shadow:rgba(0,0,0,.5);
+--card-shadow:0 2px 6px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.03);
+--key-grad:linear-gradient(180deg,#57504b,#4a423e);}
+@media (prefers-color-scheme: light){:root{--bg0:#f2e5bc;--card:#fbf1c7;--line:#e3d7b2;
+--btn:#fff8e2;--btn-h:#fffcf0;--fg:#3c3836;--dim:#7c6f64;--accent:#076678;--green:#427b58;
+--yellow:#b57614;--red:#9d0006;--accent-soft:rgba(7,102,120,.10);--shadow:#d5c4a1;
+--card-shadow:0 2px 6px rgba(133,111,76,.22),inset 0 1px 0 rgba(255,255,255,.6);
+--key-grad:linear-gradient(180deg,#fffbef,#fdf3d9);}}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--bg0);}
 *{box-sizing:border-box;user-select:none;cursor:default;
 font-family:'Segoe UI','Microsoft YaHei',system-ui,sans-serif;}
@@ -99,10 +104,11 @@ transition:background .12s,color .12s;}
 gap:9px;}
 .instructions{color:var(--dim);font-size:12px;line-height:1.5;}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+box-shadow:var(--card-shadow);
 padding:9px 12px;display:flex;flex-direction:column;gap:7px;}
 .row{display:flex;align-items:center;gap:8px;}
 .row-label{width:82px;flex:none;color:var(--fg);font-size:13px;}
-.key-btn{background:var(--btn);color:var(--fg);border:1px solid var(--line);
+.key-btn{background:var(--key-grad);color:var(--fg);border:1px solid var(--line);
 border-radius:8px;padding:6px 12px;min-width:128px;text-align:left;font-size:13px;
 cursor:pointer;box-shadow:0 2px 0 var(--shadow);
 transition:border-color .12s,background .12s,color .12s,box-shadow .12s;}

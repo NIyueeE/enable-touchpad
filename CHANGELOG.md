@@ -50,8 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Settings UI (Gruvbox v3): card-based layout with keycap-style
   capture buttons, a real toggle switch for the master switch, and
-  coloured save-status pills; the window is now 440×486 (render
-  verified headless in dark/light/capture/conflict states).
+  coloured save-status pills; the palette stacks three elevation steps
+  per theme (window → card → keycap, with card shadows and keycap
+  gradients) so the layers read distinctly in both light and dark;
+  the window is now 440×486 (render verified headless in
+  dark/light/capture/conflict states).
 - Windows feasibility demo (merged to `main`): a single-exe
   Dioxus desktop app with a tray icon and a small settings window (hidden by
   default) for the mouse-layer key bindings; **kanata v1.11 is embedded as a
