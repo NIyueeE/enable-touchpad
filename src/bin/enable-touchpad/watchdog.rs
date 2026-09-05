@@ -34,8 +34,10 @@ const SPI_UNAVAILABLE: u8 = 2;
 
 /// How often the watchdog samples the touchpad state.
 const WATCHDOG_INTERVAL: Duration = Duration::from_millis(1200);
-/// Minimum time after any chord tap before a correction may fire.
-const TAP_COOLDOWN_MS: u64 = 1500;
+/// A tap flips the touchpad asynchronously; querying too soon after one can
+/// read the pre-flip state and cause a double tap, so state checks back off
+/// for this long after any tap (ours or a transition's).
+const SETTLE_MS: u64 = 400;
 /// After this many consecutive corrections without effect, pause a minute —
 /// tapping every cycle would only spam the log and the keyboard buffer.
 const FAILURE_BACKOFF_THRESHOLD: u8 = 3;
@@ -78,12 +80,41 @@ impl WatchdogState {
     /// The platform engine reported a layer change: holding the layer key
     /// means the touchpad should be on, releasing it means off. The cursor
     /// badge mirrors the same signal.
+    ///
+    /// The desired state is applied **deterministically**: the official
+    /// touchpad state is queried and the chord is tapped only on a mismatch.
+    /// (The chord is a toggle — blind-firing it used to invert the state
+    /// whenever the touchpad was already on.) Machines without the state
+    /// query keep the legacy blind tap per transition.
     pub fn set_expected(&self, on: bool) {
         self.expected.store(
             if on { EXPECTED_ON } else { EXPECTED_OFF },
             Ordering::Relaxed,
         );
         crate::cursor_badge::set_visible(on);
+        self.verify_now(on);
+    }
+
+    /// One immediate desired-state check for a layer transition (no settle
+    /// guard — the transition itself is the reason to look right now).
+    fn verify_now(&self, desired: bool) {
+        match self.platform.touchpad_enabled() {
+            Ok(actual) => {
+                self.query_usability.store(SPI_WORKS, Ordering::Relaxed);
+                if actual == desired {
+                    self.consecutive_failures.store(0, Ordering::Relaxed);
+                } else {
+                    self.correct();
+                }
+            }
+            Err(e) => {
+                // No state query (pre-Win11 / no precision touchpad): keep
+                // the legacy blind toggle per transition.
+                self.report_unusable(&e);
+                let _ = self.platform.tap_toggle_chord();
+            }
+        }
+        self.mark_tap_now();
     }
 
     /// Master switch moved (startup or settings apply): unmanaged means hands
@@ -127,7 +158,6 @@ impl WatchdogState {
         loop {
             match layer_events.recv_timeout(WATCHDOG_INTERVAL) {
                 Ok(on) => {
-                    self.mark_tap_now();
                     self.set_expected(on);
                 }
                 Err(RecvTimeoutError::Timeout) => self.tick(),
@@ -144,32 +174,35 @@ impl WatchdogState {
         }
     }
 
-    /// One watchdog cycle: enforce "off while idle" with at most one soft
-    /// toggle.
+    /// One watchdog cycle: enforce the expected state (off while idle, on
+    /// while held) with at most one soft toggle.
     fn tick(&self) {
-        if self.expected.load(Ordering::Relaxed) != EXPECTED_OFF {
+        let expected = self.expected.load(Ordering::Relaxed);
+        if expected == EXPECTED_UNMANAGED {
             return;
         }
-        if now_ms().saturating_sub(self.last_tap_ms.load(Ordering::Relaxed)) < TAP_COOLDOWN_MS {
+        if now_ms().saturating_sub(self.last_tap_ms.load(Ordering::Relaxed)) < SETTLE_MS {
             return;
         }
         match self.platform.touchpad_enabled() {
             Err(e) => self.report_unusable(&e),
-            Ok(false) => {
+            Ok(actual) => {
                 self.query_usability.store(SPI_WORKS, Ordering::Relaxed);
-                self.consecutive_failures.store(0, Ordering::Relaxed);
-            }
-            Ok(true) => {
-                self.query_usability.store(SPI_WORKS, Ordering::Relaxed);
-                self.correct();
+                let desired = expected == EXPECTED_ON;
+                if actual == desired {
+                    self.consecutive_failures.store(0, Ordering::Relaxed);
+                } else {
+                    self.correct();
+                }
             }
         }
     }
 
-    /// Drift detected: the touchpad is on while it must be off. Send one soft
-    /// toggle and log it.
+    /// State mismatch: the touchpad is not in the expected state. Send one
+    /// soft toggle and log it.
     fn correct(&self) {
-        log::info!("state correction: touchpad on while idle, sending soft toggle");
+        let desired = self.expected.load(Ordering::Relaxed) == EXPECTED_ON;
+        log::info!("touchpad state mismatch (expected on: {desired}); sending soft toggle");
         self.mark_tap_now();
         if let Err(e) = self.platform.tap_toggle_chord() {
             log::error!("state correction failed to reach kanata: {e}");

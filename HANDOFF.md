@@ -18,6 +18,16 @@ something the next session needs to know.
 
 ## Current state (2026-09-01, `main`)
 
+- **Deterministic touchpad state sync**: kanata no longer blind-fires the
+  Ctrl+Win+F24 toggle on layer entry/exit (a toggle inverts the state
+  when the touchpad was already on). The watchdog queries
+  `touchpad_enabled()` and taps the `release-tap` fake key only on
+  mismatch — at layer entry, layer exit, and idle, in both directions,
+  with a 400 ms settle guard after any tap (was a 1.5 s cooldown).
+  SPI-less machines keep the legacy blind tap per transition; the
+  tray-quit tap is query-guarded. Idle enforcement still reverts a
+  manual "on" set in Windows Settings — flagged to the user as a
+  design decision (adaptive baseline offered).
 - **Mouse-layer cursor badge**: a click-through layered overlay
   (`etp-ffi/src/cursor_badge.rs`, `UpdateLayeredWindow`, no webview)
   pins `assets/icon_16.png` to the cursor while the layer is held;

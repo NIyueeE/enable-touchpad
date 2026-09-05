@@ -67,11 +67,7 @@ fn layer_keys(cfg: &AppConfig) -> Vec<&str> {
 pub fn generate_config_text(cfg: &AppConfig) -> String {
     let keys = layer_keys(cfg);
     let caps_slot = if cfg.feature_enabled {
-        r"(multi
-    (layer-while-held mouse)
-    (macro C-M-f24)
-    (on-release-fakekey release-tap tap))"
-            .to_string()
+        "(layer-while-held mouse)".to_string()
     } else {
         "caps".to_string()
     };
@@ -139,9 +135,7 @@ mod tests {
         let text = generate_config_text(&cfg);
         assert!(text.contains("(defsrc caps KeyF KeyJ)"), "{text}");
         assert!(
-            text.contains(
-                "(deflayer base\n  (multi\n    (layer-while-held mouse)\n    (macro C-M-f24)\n    (on-release-fakekey release-tap tap))\n  KeyF\n  KeyJ\n)"
-            ),
+            text.contains("(deflayer base\n  (layer-while-held mouse)\n  KeyF\n  KeyJ\n)"),
             "{text}"
         );
         assert!(

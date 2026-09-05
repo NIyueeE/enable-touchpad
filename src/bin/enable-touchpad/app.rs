@@ -193,8 +193,9 @@ pub fn handle_tray(
         }
         crate::tray::TrayAction::Quit => {
             // Best effort: leaving while the layer key is held would strand
-            // the touchpad in the enabled state — tap once more.
-            if state.expected_on() {
+            // the touchpad enabled — tap once more, but only when the system
+            // still reports it on (the chord is a toggle, never blind).
+            if state.expected_on() && matches!(platform.touchpad_enabled(), Ok(true)) {
                 let _ = platform.tap_toggle_chord();
                 std::thread::sleep(std::time::Duration::from_millis(50));
             }
@@ -443,9 +444,9 @@ fn footer_notes() -> Element {
     rsx! {
         div {
             class: "footer",
-            "CapsLock 按下/松开各发出一次 Ctrl+Win+F24(软开关由系统触摸板驱动执行)"
+            "层进入/退出与空闲期都会核对触摸板真实状态,仅在不符时发送 Ctrl+Win+F24 软切换"
             br {}
-            "状态矫正:未按住 CapsLock 时自动检测触摸板状态并软关闭(需 Win11 精确式触摸板)"
+            "手动在系统设置中开启的触摸板若与目标状态不符,会在约 1.2 秒内被纠正(需 Win11 精确式触摸板)"
             br {}
             "日志:%APPDATA%\\enable-touchpad\\enable-touchpad.log"
         }

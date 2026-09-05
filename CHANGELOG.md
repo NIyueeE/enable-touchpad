@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Layer ↔ touchpad state inversion**: the Ctrl+Win+F24 chord is a
+  *toggle*, so blind-firing it on layer entry/exit flipped the touchpad
+  whenever it was already enabled. The generated kanata config no longer
+  fires chords; the watchdog instead queries the official state and taps
+  only on a mismatch — at layer entry, layer exit, and idle, in both
+  directions (400 ms settle guard replaces the old 1.5 s cooldown).
+  Machines without the state query keep the legacy blind tap per
+  transition, and the tray-quit tap is query-guarded too.
 - Watchdog: the layer-event loop could busy-spin once the engine's
   sender side was gone (`recv_timeout` returns `Disconnected`
   immediately without waiting); that branch now backs off like a
