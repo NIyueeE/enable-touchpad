@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Held-key drags stuttered**: holding a layer key (e.g. Q for left
+  click) and sliding the touchpad stuttered badly — Windows auto-repeat
+  re-delivered the held key's keydowns at ~30 Hz and kanata re-injected
+  the mouse-button press for each one, breaking the drag (a *physical*
+  mouse button held was smooth, pinning the cause to the synthetic
+  repeats). A second low-level keyboard hook — junior to kanata's — now
+  eats auto-repeat keydowns of the layer keys while the mouse layer is
+  active, so drags are clean; normal typing auto-repeat outside the
+  layer is untouched.
 - **Toggle delivery**: watchdog corrections travelled through kanata's
   `ActOnFakeKey` TCP command, a path that had never actually fired on real
   hardware (in the blind-chord design the idle corrector was unreachable),

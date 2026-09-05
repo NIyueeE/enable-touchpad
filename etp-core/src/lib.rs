@@ -12,4 +12,6 @@ pub mod keys;
 
 pub use config::AppConfig;
 pub use generator::generate_config_text;
-pub use keys::{CANCEL_KEY, HOLD_KEY, KEY_NONE, SUPPORTED_CODES, is_bindable, key_label};
+pub use keys::{
+    CANCEL_KEY, HOLD_KEY, KEY_NONE, SUPPORTED_CODES, code_to_vk, is_bindable, key_label,
+};

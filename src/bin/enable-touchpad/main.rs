@@ -78,6 +78,13 @@ fn main() {
         log::error!("input engine failed to start: {e}");
     } else {
         watchdog::spawn(Arc::clone(&watchdog), layer_rx);
+        // Install AFTER kanata: LL hooks run last-installed-first, and the
+        // repeat filter must see auto-repeats before kanata does.
+        if let Err(e) = etp_ffi::repeat_filter::install() {
+            log::warn!("repeat filter unavailable: {e}; held-key drags may stutter");
+        } else {
+            app::update_repeat_filter(&cfg);
+        }
     }
 
     // The door must exist before the tray: tray visuals are applied through

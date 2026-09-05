@@ -35,6 +35,22 @@ pub fn sync_feature_signal(on: bool) {
     }
 }
 
+/// Push the virtual keys of the current layer bindings into the repeat
+/// filter (startup and every apply — bindings may have changed).
+pub fn update_repeat_filter(cfg: &AppConfig) {
+    let vks: Vec<u16> = [
+        cfg.left_click_key.as_str(),
+        cfg.middle_click_key.as_str(),
+        cfg.right_click_key.as_str(),
+        cfg.capslock_key.as_str(),
+    ]
+    .into_iter()
+    .filter(|code| *code != KEY_NONE && *code != HOLD_KEY)
+    .filter_map(etp_core::code_to_vk)
+    .collect();
+    etp_ffi::repeat_filter::set_keys(&vks);
+}
+
 /// Handler running on the main thread for door tasks (tray visuals, window
 /// show). Registered in `main` via `etp_ffi::window::init`.
 pub fn on_door_message(task: usize, param: usize) {
@@ -585,6 +601,7 @@ fn apply(
     state.set_managed(cfg.feature_enabled);
     crate::tray::apply_master_visuals(cfg.feature_enabled);
     sync_feature_signal(cfg.feature_enabled);
+    update_repeat_filter(cfg);
     log::info!("settings saved and applied: {cfg:?}");
     Ok(())
 }

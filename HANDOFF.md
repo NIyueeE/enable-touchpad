@@ -18,6 +18,16 @@ something the next session needs to know.
 
 ## Current state (2026-09-01, `main`)
 
+- **Auto-repeat filter**: holding a layer key made Windows auto-repeat
+  (~30 Hz) re-deliver keydowns; kanata re-emitted the held mouse button
+  for each (key_repeat.rs: handle_repeat re-emits currently-held output),
+  stuttering touchpad drags. Fix: `etp_ffi::repeat_filter` installs a
+  second WH_KEYBOARD_LL hook AFTER kanata's (LL hooks run
+  last-installed-first), tracks held state per layer key
+  (`etp_core::code_to_vk` maps binding codes to VKs, `set_keys` on
+  startup/apply), and eats repeat keydowns of layer keys while
+  `set_expected` marks the layer active (bits cleared on key-up and layer
+  exit). Key-ups always pass through. Injected events are never filtered.
 - **Tray + settings-window architecture**: all tray/window mutations run
   on the main thread via a message-only "door" window
   (`etp_ffi::window`: `init(handler)` + `post(task, param)`, handler

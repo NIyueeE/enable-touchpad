@@ -81,6 +81,10 @@ pub mod chord;
 /// Main-thread task door + async window ops (tray visuals, window show).
 pub mod window;
 
+/// Auto-repeat filter for the mouse layer keys (second LL hook, junior to
+/// kanata's).
+pub mod repeat_filter;
+
 // This crate is the designated unsafe boundary of enable-touchpad (the main
 // crate forbids `unsafe_code` and cannot relax it locally); each use below is
 // a deliberate, documented Win32 call.

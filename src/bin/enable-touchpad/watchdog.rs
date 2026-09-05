@@ -98,6 +98,7 @@ impl WatchdogState {
             Ordering::Relaxed,
         );
         crate::cursor_badge::set_visible(on);
+        etp_ffi::repeat_filter::set_active(on);
         self.verify_now(on);
     }
 
@@ -147,6 +148,7 @@ impl WatchdogState {
         // A master-switch transition always hides the badge: the layer is
         // either gone (feature off) or about to be idle-off.
         crate::cursor_badge::set_visible(false);
+        etp_ffi::repeat_filter::set_active(false);
         if managed {
             self.expected.store(EXPECTED_OFF, Ordering::Relaxed);
             return;
