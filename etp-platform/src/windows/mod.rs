@@ -39,7 +39,10 @@ impl Platform for WindowsPlatform {
     }
 
     fn tap_toggle_chord(&self) -> Result<(), PlatformError> {
-        engine::tap_release_fakekey()
+        // Direct SendInput injection mirroring kanata's proven Windows
+        // output path — the ActOnFakeKey TCP route never proved itself on
+        // real hardware.
+        etp_ffi::chord::tap().map_err(PlatformError::new)
     }
 
     fn touchpad_enabled(&self) -> Result<bool, PlatformError> {

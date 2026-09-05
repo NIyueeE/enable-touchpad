@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Toggle delivery**: watchdog corrections travelled through kanata's
+  `ActOnFakeKey` TCP command, a path that had never actually fired on real
+  hardware (in the blind-chord design the idle corrector was unreachable),
+  and visibly no-opped on the device. The chord is now injected directly
+  with SendInput — mirroring kanata's proven Windows output byte-for-byte
+  (scancodes via `MapVirtualKeyW`, extended-key flag for LWin) — and the
+  generated config dropped the unused fake key.
+- **Watchdog freeze**: a failed-correction backoff slept the watchdog
+  thread for 60 s, freezing layer-event processing (cursor badge stuck on,
+  transitions dead). The pause is now a timestamp; the thread keeps
+  draining events and layer transitions keep working during backoff.
+- **Log file discoverability**: logging falls back to the executable
+  directory when the platform data directory is unavailable (elevated
+  sessions can resolve `%APPDATA%` to another profile), and the settings
+  footer now shows the active log path.
 - **Layer ↔ touchpad state inversion**: the Ctrl+Win+F24 chord is a
   *toggle*, so blind-firing it on layer entry/exit flipped the touchpad
   whenever it was already enabled. The generated kanata config no longer

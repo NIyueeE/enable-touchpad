@@ -21,13 +21,23 @@ something the next session needs to know.
 - **Deterministic touchpad state sync**: kanata no longer blind-fires the
   Ctrl+Win+F24 toggle on layer entry/exit (a toggle inverts the state
   when the touchpad was already on). The watchdog queries
-  `touchpad_enabled()` and taps the `release-tap` fake key only on
-  mismatch — at layer entry, layer exit, and idle, in both directions,
-  with a 400 ms settle guard after any tap (was a 1.5 s cooldown).
-  SPI-less machines keep the legacy blind tap per transition; the
-  tray-quit tap is query-guarded. Idle enforcement still reverts a
-  manual "on" set in Windows Settings — flagged to the user as a
-  design decision (adaptive baseline offered).
+  `touchpad_enabled()` and taps the chord only on mismatch — at layer
+  entry, layer exit, and idle, in both directions, with a 400 ms settle
+  guard after any tap. SPI-less machines keep the legacy blind tap per
+  transition; the tray-quit tap is query-guarded. Idle enforcement still
+  reverts a manual "on" set in Windows Settings — flagged to the user as
+  a design decision (adaptive baseline offered).
+- **Device findings (build 8fd9ae4)**: the `ActOnFakeKey` fake-key-over-TCP
+  delivery no-opped on real hardware and 3 failed corrections slept the
+  watchdog thread 60 s → badge stuck on + transitions dead + touchpad
+  would not enable. Fixes: chord injected directly via `etp_ffi::chord`
+  (SendInput, scancodes + extended flag, mirrors kanata oskbd byte-for-
+  byte; the config-macro chord is the device-proven mechanism), backoff
+  is a timestamp instead of a sleep, transitions honour the settle guard,
+  and logging falls back to the exe dir with the real path shown in the
+  settings footer. If the toggle still fails on device, capture
+  `%APPDATA%\enable-touchpad\enable-touchpad.log` (footer shows the real
+  path) — it now logs every mismatch/tap/backoff decision.
 - **Mouse-layer cursor badge**: a click-through layered overlay
   (`etp-ffi/src/cursor_badge.rs`, `UpdateLayeredWindow`, no webview)
   pins `assets/icon_16.png` to the cursor while the layer is held;

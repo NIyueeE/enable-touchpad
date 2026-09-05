@@ -46,8 +46,9 @@ pub trait Platform: Send + Sync {
     /// the running engine cannot be reached for reload.
     fn apply_engine_config(&self, cfg: &AppConfig) -> Result<(), PlatformError>;
 
-    /// Fire one soft touchpad toggle (on Windows: the Ctrl+Win+F24 chord via
-    /// the embedded kanata fake key). Used by the watchdog and the quit path.
+    /// Fire one soft touchpad toggle (on Windows: the Ctrl+Win+F24 chord
+    /// injected directly with `SendInput`, mirroring kanata's proven output
+    /// path). Used by the watchdog and the quit path.
     ///
     /// # Errors
     ///

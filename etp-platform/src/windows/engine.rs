@@ -8,13 +8,11 @@
 //! - hot-apply config changes by sending the TCP `Reload` command;
 //! - watch layer-change notifications (kanata broadcasts them to every
 //!   connected TCP client) and forward them to the watchdog through the
-//!   channel passed to [`start`];
-//! - expose [`tap_release_fakekey`], the soft Ctrl+Win+F24 toggle used for
-//!   state corrections.
+//!   channel passed to [`start`].
 //!
-//! The `CapsLock` mapping taps Ctrl+Win+F24 once on press and once on release
-//! (a toggle for the system's touchpad driver). This app never disables
-//! devices.
+//! The `CapsLock` mapping only switches layers; the touchpad soft toggle is
+//! injected directly by the platform crate (see `etp_ffi::chord`) under the
+//! watchdog's deterministic state sync. This app never disables devices.
 
 use super::WindowsPlatform;
 use crate::{Platform, PlatformError};
@@ -129,24 +127,6 @@ fn parse_layer_change(line: &str) -> Option<bool> {
     let value: serde_json::Value = serde_json::from_str(line.trim()).ok()?;
     let layer = value.get("LayerChange")?.get("new")?.as_str()?.to_string();
     Some(layer == "mouse")
-}
-
-/// Fire the `release-tap` fake key (one Ctrl+Win+F24 chord) through the
-/// embedded kanata instance. The state watchdog uses this to force the
-/// touchpad off without touching any device. Success produces no response,
-/// so the connection is dropped right after sending.
-pub fn tap_release_fakekey() -> Result<(), PlatformError> {
-    let mut stream = std::net::TcpStream::connect(("127.0.0.1", INTERNAL_PORT))
-        .map_err(|e| PlatformError::new(format!("kanata 控制通道连接失败: {e}")))?;
-    stream
-        .set_write_timeout(Some(CONTROL_TIMEOUT))
-        .map_err(|e| PlatformError::new(format!("kanata 控制通道超时设置失败: {e}")))?;
-    stream
-        .write_all(br#"{"ActOnFakeKey":{"name":"release-tap","action":"Tap"}}"#)
-        .and_then(|()| stream.write_all(b"\n"))
-        .map_err(|e| PlatformError::new(format!("kanata fake-key 命令发送失败: {e}")))?;
-    log::info!("sent release-tap (Ctrl+Win+F24) via fake key");
-    Ok(())
 }
 
 /// Materialise the generated config for `cfg` at the canonical path.

@@ -74,6 +74,10 @@ pub enum TouchpadStateError {
 /// the cursor). See the module docs for the design.
 pub mod cursor_badge;
 
+/// Direct Ctrl+Win+F24 chord injection (mirrors kanata's proven SendInput
+/// output path; bypasses the unproven ActOnFakeKey TCP command).
+pub mod chord;
+
 // This crate is the designated unsafe boundary of enable-touchpad (the main
 // crate forbids `unsafe_code` and cannot relax it locally); each use below is
 // a deliberate, documented Win32 call.
