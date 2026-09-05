@@ -22,6 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in the documented claim order (左键 → 中键 → 右键 → CapsLock) — the
   previous CapsLock-first check silently swallowed click bindings. A
   duplicate binding is now also flagged inline in the settings UI.
+- The kanata control channel (reload / release tap) now times out
+  after 3 s instead of being able to freeze the settings window
+  indefinitely.
+- config.json is written atomically (temp file + rename) so a crash
+  cannot corrupt it into a silent reset-to-defaults.
+- A second app launch leaves a log entry instead of exiting silently,
+  and the stale "app starting" line no longer comes from it.
 
 ### Added
 

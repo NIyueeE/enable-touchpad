@@ -30,6 +30,11 @@ use std::time::Duration;
 /// channel only — never exposed in the UI.
 const INTERNAL_PORT: u16 = 5829;
 
+/// Bound on the control-channel waits. The settings UI calls `apply_config`
+/// synchronously on the UI thread, so a hung connection must fail fast
+/// instead of freezing the window forever.
+const CONTROL_TIMEOUT: Duration = Duration::from_secs(3);
+
 /// Delay before the layer monitor retries a failed connection.
 const LAYER_MONITOR_RETRY: Duration = Duration::from_secs(2);
 
@@ -134,6 +139,9 @@ pub fn tap_release_fakekey() -> Result<(), PlatformError> {
     let mut stream = std::net::TcpStream::connect(("127.0.0.1", INTERNAL_PORT))
         .map_err(|e| PlatformError::new(format!("kanata 控制通道连接失败: {e}")))?;
     stream
+        .set_write_timeout(Some(CONTROL_TIMEOUT))
+        .map_err(|e| PlatformError::new(format!("kanata 控制通道超时设置失败: {e}")))?;
+    stream
         .write_all(br#"{"ActOnFakeKey":{"name":"release-tap","action":"Tap"}}"#)
         .and_then(|()| stream.write_all(b"\n"))
         .map_err(|e| PlatformError::new(format!("kanata fake-key 命令发送失败: {e}")))?;
@@ -156,6 +164,10 @@ fn config_path() -> Result<PathBuf, PlatformError> {
 fn send_reload() -> Result<(), PlatformError> {
     let mut stream = std::net::TcpStream::connect(("127.0.0.1", INTERNAL_PORT))
         .map_err(|e| PlatformError::new(format!("kanata 控制通道连接失败: {e}")))?;
+    stream
+        .set_write_timeout(Some(CONTROL_TIMEOUT))
+        .and_then(|()| stream.set_read_timeout(Some(CONTROL_TIMEOUT)))
+        .map_err(|e| PlatformError::new(format!("kanata 控制通道超时设置失败: {e}")))?;
     stream
         .write_all(br#"{"Reload":{"wait":true}}"#)
         .and_then(|()| stream.write_all(b"\n"))

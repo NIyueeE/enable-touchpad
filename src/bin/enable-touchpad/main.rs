@@ -49,13 +49,17 @@ fn acquire_single_instance_lock() -> bool {
 
 #[cfg(windows)]
 fn main() {
-    if !acquire_single_instance_lock() {
-        std::process::exit(1);
-    }
-
+    // Logging goes first: the data directory must exist before the lock check
+    // so even a second launch leaves a trace in the log file.
     let platform = etp_platform::current();
     logging::init(platform);
+
+    if !acquire_single_instance_lock() {
+        log::error!("another enable-touchpad instance is already running; exiting");
+        std::process::exit(1);
+    }
     log::info!("single-instance lock acquired");
+    log::info!("app starting");
 
     let watchdog = Arc::new(watchdog::WatchdogState::new(platform));
     let cfg = config_store::load(platform);

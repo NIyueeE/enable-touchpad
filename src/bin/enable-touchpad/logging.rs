@@ -24,5 +24,4 @@ pub fn init(platform: &dyn Platform) {
         simplelog::Config::default(),
         file,
     );
-    log::info!("app starting");
 }

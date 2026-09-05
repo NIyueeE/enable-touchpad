@@ -18,14 +18,20 @@ pub fn load(platform: &dyn Platform) -> AppConfig {
         .unwrap_or_default()
 }
 
-/// Persist the config to disk, creating the parent directory if needed.
+/// Persist the config to disk atomically: write a sibling temp file first and
+/// rename it over `config.json`. A crash mid-write then cannot leave a
+/// half-written config behind — [`load`] silently falls back to defaults on a
+/// parse error, so a corrupt file would quietly discard the user's bindings.
 pub fn save(platform: &dyn Platform, cfg: &AppConfig) -> Result<(), String> {
     let path = config_path(platform).map_err(|e| e.to_string())?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     let json = cfg.to_json_pretty()?;
-    std::fs::write(path, json).map_err(|e| e.to_string())
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, json).map_err(|e| e.to_string())?;
+    // `fs::rename` replaces the destination on both Unix and Windows.
+    std::fs::rename(&tmp, &path).map_err(|e| e.to_string())
 }
 
 fn config_path(platform: &dyn Platform) -> Result<PathBuf, PlatformError> {
