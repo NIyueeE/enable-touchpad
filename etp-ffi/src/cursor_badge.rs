@@ -16,16 +16,14 @@
 //! - Nothing survives a process kill: the window dies with the thread and
 //!   no system state (cursor scheme, devices, ...) is ever modified.
 
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
 
-/// The badge is centred on the cursor sprite's bottom-right corner (sprite
-/// size from `GetSystemMetrics(SM_CXCURSOR/SM_CYCURSOR)`, so it tracks the
-/// system DPI) — the same attachment the native "working in background"
-/// cursor uses for its spinner. Half the badge therefore overlaps the
-/// arrow, making it read as part of the cursor.
-static BADGE_SIZE: AtomicU32 = AtomicU32::new(16);
+/// The badge is anchored like the native Help Select cursor: hugging the
+/// arrow glyph's right side from roughly mid-height down. The arrow glyph
+/// occupies about the left 45% of the sprite box (SM_CXCURSOR/SM_CYCURSOR,
+/// DPI-scaled), so the badge starts just inside that edge, halfway down.
 /// Reposition cadence: one `GetCursorPos` + one `SetWindowPos` per tick,
 /// only while the badge is visible.
 const POLL: Duration = Duration::from_millis(8);
@@ -224,7 +222,6 @@ pub fn start(rgba: Vec<u8>, width: u32, height: u32) -> Result<(), String> {
             rgba.len()
         ));
     }
-    BADGE_SIZE.store(width.min(height), Ordering::Relaxed);
     let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
     let bgra = premultiply_bgra(&rgba);
     std::thread::Builder::new()
@@ -438,17 +435,17 @@ unsafe fn follow_loop(hwnd: Hwnd) {
 )]
 unsafe fn move_to_cursor(hwnd: Hwnd, extra: u32) {
     // SM_CXCURSOR = 13, SM_CYCURSOR = 14: current cursor sprite size,
-    // already DPI-scaled for this process. Centre the badge on the
-    // sprite's bottom-right corner (native working-cursor attachment).
+    // already DPI-scaled for this process. Anchor like the native Help
+    // Select cursor: start just inside the arrow glyph's right edge (the
+    // glyph occupies about the left 45% of the sprite box), halfway down.
     let (cx, cy) = (GetSystemMetrics(13), GetSystemMetrics(14));
-    let half = i32::try_from(BADGE_SIZE.load(Ordering::Relaxed)).unwrap_or(16) / 2;
     let mut pt = Point { x: 0, y: 0 };
     if GetCursorPos(&mut pt) != 0 {
         SetWindowPos(
             hwnd,
             0,
-            pt.x + cx - half,
-            pt.y + cy - half,
+            pt.x + cx * 45 / 100 - 2,
+            pt.y + cy / 2,
             0,
             0,
             SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | extra,

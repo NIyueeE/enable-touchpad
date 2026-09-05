@@ -20,10 +20,10 @@ something the next session needs to know.
 
 - **Mouse-layer cursor badge**: a click-through layered overlay
   (`etp-ffi/src/cursor_badge.rs`, `UpdateLayeredWindow`, no webview)
-  pins `assets/icon_16.png` to the cursor's bottom-right corner while
-  the layer is held; the badge is centred on the cursor
-  sprite's bottom-right corner (SM_CXCURSOR/SM_CYCURSOR, DPI-aware) —
-  the native working-cursor attachment — there is a 150 ms show delay,
+  pins `assets/icon_16.png` to the cursor while the layer is held;
+  the anchor mimics the native Help Select cursor — hugging the arrow
+  glyph's right edge (sprite box × 45% − 2px), halfway down
+  (SM_CXCURSOR/SM_CYCURSOR, DPI-aware) — with a 150 ms show delay,
   and visibility is driven by the watchdog's expected state
   (`set_expected`/`set_managed` → `cursor_badge::set_visible`). The
   owner thread polls at ~125 Hz only while visible; a process kill
