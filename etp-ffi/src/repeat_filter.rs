@@ -73,6 +73,15 @@ pub fn set_keys(vks: &[u16]) {
         *keys = filtered;
         FILTER_KEY_COUNT.store(count, Ordering::Relaxed);
         HELD_BITS.store(0, Ordering::Relaxed);
+        log::info!(
+            "repeat filter keys: [{}] (count {count})",
+            filtered
+                .iter()
+                .take(count)
+                .map(|vk| format!("{vk:#04x}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
 }
 
@@ -103,6 +112,7 @@ pub fn install() -> Result<(), String> {
         return Err("keyboard repeat filter hook failed to install".to_string());
     }
     HHOOK.store(handle, Ordering::Relaxed);
+    log::info!("repeat filter hook installed (handle {handle:#x})");
     Ok(())
 }
 
