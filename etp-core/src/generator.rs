@@ -11,8 +11,13 @@ use crate::config::AppConfig;
 use crate::keys::{HOLD_KEY, KEY_NONE};
 
 /// The kanata action for a `mouse`-layer slot, given the action-to-key
-/// mapping. Unassigned slots emit `XX` (blocked). First claim wins when two
-/// actions share a key.
+/// mapping. Unassigned slots emit `XX` (blocked).
+///
+/// The check order mirrors the claim order of [`layer_keys`] (left click →
+/// middle click → right click → `CapsLock`), so when two actions share one key
+/// the documented "first claim wins" rule really holds — previously the
+/// `CapsLock` check ran first and silently swallowed a click binding that had
+/// first claim on the shared key.
 #[must_use]
 pub fn layer_slot_action(
     slot: &str,
@@ -21,14 +26,14 @@ pub fn layer_slot_action(
     right_click_key: &str,
     capslock_key: &str,
 ) -> &'static str {
-    if slot == capslock_key {
-        "caps"
-    } else if slot == left_click_key {
+    if slot == left_click_key {
         "mlft"
     } else if slot == middle_click_key {
         "mmid"
     } else if slot == right_click_key {
         "mrgt"
+    } else if slot == capslock_key {
+        "caps"
     } else {
         "XX"
     }
@@ -172,5 +177,16 @@ mod tests {
             text.contains("(deflayer base\n  caps\n  q\n  w\n  e\n  lalt\n)"),
             "{text}"
         );
+    }
+
+    #[test]
+    fn generator_click_vs_caps_conflict_resolves_by_first_claim() {
+        // 左键 and CapsLock sharing one key: the left click has first claim
+        // (claim order left → middle → right → caps), so the mouse layer must
+        // map the key to `mlft`, not silently to `caps`.
+        let cfg = cfg(true, "KeyJ", KEY_NONE, KEY_NONE, "KeyJ");
+        let text = generate_config_text(&cfg);
+        assert!(text.contains("(defsrc caps KeyJ)"), "{text}");
+        assert!(text.contains("(deflayer mouse\n  XX\n  mlft\n)"), "{text}");
     }
 }

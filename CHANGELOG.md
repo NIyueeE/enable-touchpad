@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the touchpad stranded on with the watchdog unmanaged; switching to
   unmanaged now sends one soft toggle when the official touchpad state
   still reads enabled.
+- Layer-key conflicts (one key bound to two actions) are now resolved
+  in the documented claim order (左键 → 中键 → 右键 → CapsLock) — the
+  previous CapsLock-first check silently swallowed click bindings. A
+  duplicate binding is now also flagged inline in the settings UI.
 
 ### Added
 
