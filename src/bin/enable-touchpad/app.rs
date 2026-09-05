@@ -12,7 +12,6 @@
 use crate::config_store;
 use crate::watchdog::WatchdogState;
 use dioxus::desktop::tao;
-use dioxus::desktop::tao::platform::windows::WindowExtWindows;
 use dioxus::desktop::{Config, LogicalSize, WindowBuilder, WindowCloseBehaviour, window};
 use dioxus::prelude::SyncStorage;
 use dioxus::prelude::*;
@@ -45,7 +44,12 @@ pub fn on_door_message(task: usize, param: usize) {
         }
         etp_ffi::window::TASK_OPEN_SETTINGS => {
             if let Some(win) = MAIN_WINDOW.get() {
-                etp_ffi::window::show_and_activate(win.hwnd());
+                // Main thread: tao's executor runs inline here, which keeps
+                // its internal visibility state in sync — a raw ShowWindow
+                // desyncs it and turns the ✕ hide into a no-op.
+                win.set_minimized(false);
+                win.set_visible(true);
+                win.set_focus();
             }
         }
         _ => log::warn!("unknown door task {task}"),
@@ -485,10 +489,6 @@ fn footer_notes() -> Element {
     rsx! {
         div {
             class: "footer",
-            "层进入/退出与空闲期都会核对触摸板真实状态,仅在不符时发送 Ctrl+Win+F24 软切换"
-            br {}
-            "手动在系统设置中开启的触摸板若与目标状态不符,会在约 1.2 秒内被纠正(需 Win11 精确式触摸板)"
-            br {}
             "日志:{log}"
         }
     }

@@ -20,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   thread for 60 s, freezing layer-event processing (cursor badge stuck on,
   transitions dead). The pause is now a timestamp; the thread keeps
   draining events and layer transitions keep working during backoff.
+- **Settings window could not be closed**: showing the window with a raw
+  `ShowWindow` desynced tao's internal visibility state, turning the ✕
+  hide into a no-op. The door task now uses tao's own
+  `set_visible/set_focus` on the main thread (where its thread executor
+  runs inline and the state stays coherent). The settings footer was
+  also trimmed to user-relevant content (just the log path), and every
+  touchpad state check now logs expected vs actual for diagnosis.
 - **Log file discoverability**: logging falls back to the executable
   directory when the platform data directory is unavailable (elevated
   sessions can resolve `%APPDATA%` to another profile), and the settings

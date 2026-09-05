@@ -114,6 +114,9 @@ impl WatchdogState {
                 if actual == desired {
                     self.consecutive_failures.store(0, Ordering::Relaxed);
                 } else {
+                    log::info!(
+                        "layer transition: touchpad expected on={desired}, actual on={actual}"
+                    );
                     self.correct();
                 }
             }
@@ -208,6 +211,7 @@ impl WatchdogState {
                 if actual == desired {
                     self.consecutive_failures.store(0, Ordering::Relaxed);
                 } else {
+                    log::info!("idle check: touchpad expected on={desired}, actual on={actual}");
                     self.correct();
                 }
             }

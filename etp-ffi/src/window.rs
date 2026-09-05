@@ -25,8 +25,6 @@ type DoorHandler = fn(usize, usize);
 static HANDLER: Mutex<Option<DoorHandler>> = Mutex::new(None);
 
 const WM_APP_BASE: u32 = 0x8000;
-const SW_RESTORE: i32 = 9;
-const SW_SHOW: i32 = 5;
 
 #[repr(C)]
 struct WndClassW {
@@ -62,8 +60,6 @@ unsafe extern "system" {
     ) -> isize;
     fn DefWindowProcW(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> isize;
     fn PostMessageW(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> i32;
-    fn ShowWindow(hwnd: isize, cmd: i32) -> i32;
-    fn SetForegroundWindow(hwnd: isize) -> i32;
     fn GetModuleHandleW(name: *const u16) -> isize;
 }
 
@@ -97,19 +93,6 @@ pub fn post(task: usize, param: usize) {
     // `init` and runs on the main thread's message pump.
     unsafe {
         PostMessageW(hwnd, WM_APP_BASE, task, param as isize);
-    }
-}
-
-/// Show, restore and foreground the settings window. Plain async Win32 —
-/// safe to call from any thread, never blocks the caller.
-#[allow(unsafe_code)]
-pub fn show_and_activate(hwnd: isize) {
-    // SAFETY: `hwnd` is the caller's own settings window; both calls are
-    // plain asynchronous Win32 operations.
-    unsafe {
-        ShowWindow(hwnd, SW_RESTORE);
-        ShowWindow(hwnd, SW_SHOW);
-        SetForegroundWindow(hwnd);
     }
 }
 

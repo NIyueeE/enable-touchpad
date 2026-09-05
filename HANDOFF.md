@@ -29,10 +29,12 @@ something the next session needs to know.
   checkbox lives in a `SyncStorage` signal
   (`app::FEATURE_SIGNAL` + `use_signal_sync`) so tray toggles update it
   live. Showing the settings window is a door task (plain
-  ShowWindow/SetForegroundWindow in `etp_ffi::window::show_and_activate`)
-  — do NOT reintroduce `win.set_visible/set_focus` from the forwarder
-  thread (tao's thread-executor hop froze the app while the window was
-  open; device-reported).
+  a door task handled ON the main thread with tao's own
+  `set_minimized/set_visible/set_focus` (tao's executor runs inline
+  there) — do NOT call them from the forwarder thread (tao's
+  thread-executor hop froze the app; device-reported) and do NOT show
+  the window with raw ShowWindow (that desyncs tao's visibility state
+  and made the ✕ close a no-op; device-reported).
 - **Deterministic touchpad state sync**: kanata no longer blind-fires the
   Ctrl+Win+F24 toggle on layer entry/exit (a toggle inverts the state
   when the touchpad was already on). The watchdog queries
