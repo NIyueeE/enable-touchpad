@@ -34,7 +34,7 @@ etp-ffi = { version = "0.1.0", path = "etp-ffi" }
 log = "0.4.34"
 png = "0.18.1"
 simplelog = "0.12.2"
-tray-icon = "0.24.2"
+tray-icon = "0.25.1"
 
 [build-dependencies]
 winresource = "0.1.31"
